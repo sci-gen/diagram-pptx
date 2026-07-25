@@ -1,0 +1,21 @@
+services:
+  test:
+    build:
+      context: .
+    command: pytest --cov=diagram_pptx --cov-report=term-missing
+    volumes:
+      - .:/workspace
+
+  example:
+    build:
+      context: .
+    command:
+      - bash
+      - -lc
+      - >-
+        mkdir -p artifacts &&
+        diagram-pptx render examples/flowchart.mmd artifacts/flowchart.pptx
+        --title "Editable native PowerPoint flowchart" &&
+        bash scripts/render_pptx.sh artifacts/flowchart.pptx artifacts/rendered
+    volumes:
+      - .:/workspace

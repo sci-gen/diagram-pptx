@@ -1,0 +1,14 @@
+flowchart LR
+    A[Receive request] --> B{Valid?}
+    B -->|Yes| C(Process request)
+    B -->|No| D[Reject request]
+    C --> E[[Record result]]
+    D -.-> E
+
+    subgraph Audit[Audit trail]
+        E --> F((Complete))
+    end
+
+    classDef success fill:#E4F7EA,stroke:#238636,color:#14532D,stroke-width:2px
+    class C,F success
+    style D fill:#FDECEC,stroke:#C53B3B,color:#7F1D1D
