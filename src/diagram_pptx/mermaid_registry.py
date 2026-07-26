@@ -79,9 +79,7 @@ MERMAID_SYNTAX_FAMILIES: tuple[MermaidSyntaxFamily, ...] = (
         typed_model=True,
         native_backend=True,
     ),
-    MermaidSyntaxFamily(
-        "journey", "User Journey", r"^\s*journey\b", f"{_DOCS}userJourney.html"
-    ),
+    MermaidSyntaxFamily("journey", "User Journey", r"^\s*journey\b", f"{_DOCS}userJourney.html"),
     MermaidSyntaxFamily("gantt", "Gantt", r"^\s*gantt\b", f"{_DOCS}gantt.html"),
     MermaidSyntaxFamily("pie", "Pie Chart", r"^\s*pie\b", f"{_DOCS}pie.html"),
     MermaidSyntaxFamily(
@@ -96,9 +94,7 @@ MERMAID_SYNTAX_FAMILIES: tuple[MermaidSyntaxFamily, ...] = (
         r"^\s*requirement(?:Diagram)?\b",
         f"{_DOCS}requirementDiagram.html",
     ),
-    MermaidSyntaxFamily(
-        "gitgraph", "GitGraph", r"^\s*gitGraph\b", f"{_DOCS}gitgraph.html"
-    ),
+    MermaidSyntaxFamily("gitgraph", "GitGraph", r"^\s*gitGraph\b", f"{_DOCS}gitgraph.html"),
     MermaidSyntaxFamily(
         "c4",
         "C4 Diagram",
@@ -107,9 +103,7 @@ MERMAID_SYNTAX_FAMILIES: tuple[MermaidSyntaxFamily, ...] = (
         experimental=True,
     ),
     MermaidSyntaxFamily("mindmap", "Mindmap", r"^\s*mindmap\b", f"{_DOCS}mindmap.html"),
-    MermaidSyntaxFamily(
-        "timeline", "Timeline", r"^\s*timeline\b", f"{_DOCS}timeline.html"
-    ),
+    MermaidSyntaxFamily("timeline", "Timeline", r"^\s*timeline\b", f"{_DOCS}timeline.html"),
     MermaidSyntaxFamily("zenuml", "ZenUML", r"^\s*zenuml\b", f"{_DOCS}zenuml.html"),
     MermaidSyntaxFamily(
         "sankey",

@@ -151,10 +151,7 @@ requirement test_req {
   verifymethod: test
 }""",
     "gitgraph": "gitGraph\ncommit\nbranch develop\ncheckout develop\ncommit",
-    "c4": (
-        'C4Context\nPerson(user, "User")\nSystem(system, "System")\n'
-        'Rel(user, system, "Uses")'
-    ),
+    "c4": ('C4Context\nPerson(user, "User")\nSystem(system, "System")\nRel(user, system, "Uses")'),
     "mindmap": "mindmap\n  root((mindmap))\n    Topic",
     "timeline": "timeline\ntitle History\n2026 : Event",
     "zenuml": "zenuml\nAlice->Bob: Hello",
@@ -164,10 +161,7 @@ requirement test_req {
     "packet": 'packet\n0-7: "Header"\n8-15: "Payload"',
     "kanban": "kanban\ncolumn1[Todo]\ntask1[Task]",
     "architecture": "architecture-beta\nservice api(server)[API]",
-    "radar": (
-        'radar-beta\naxis a["Speed"], b["Quality"]\n'
-        'curve c["Product"]{1, 2}\nmax 5\nmin 0'
-    ),
+    "radar": ('radar-beta\naxis a["Speed"], b["Quality"]\ncurve c["Product"]{1, 2}\nmax 5\nmin 0'),
     "eventmodeling": "eventmodeling\ntf 01 ui CartUI\ntf 02 cmd AddItem",
     "treemap": 'treemap-beta\n"Root"\n  "Leaf": 10',
     "venn": "venn-beta\nset A\nset B\nunion A,B",
