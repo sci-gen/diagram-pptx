@@ -1,0 +1,11 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant API
+    participant Worker
+    User->>API: Submit request
+    activate API
+    API->>Worker: Run task
+    Worker-->>API: Result
+    API-->>User: Completed
+    deactivate API

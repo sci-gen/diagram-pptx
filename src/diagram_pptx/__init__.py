@@ -29,6 +29,7 @@ from .layout.layered import LayeredLayout
 from .mermaid import parse_mermaid, serialize_mermaid
 from .mermaid_registry import (
     MERMAID_COMPATIBILITY_VERSION,
+    MERMAID_NATIVE_KINDS,
     MERMAID_SYNTAX_FAMILIES,
     MermaidSyntaxFamily,
     mermaid_support_rows,
@@ -119,6 +120,7 @@ __all__ = [
     "MermaidSourceDiagram",
     "MermaidSyntaxFamily",
     "MERMAID_COMPATIBILITY_VERSION",
+    "MERMAID_NATIVE_KINDS",
     "MERMAID_SYNTAX_FAMILIES",
     "MermaidParseError",
     "MermaidRuntimeError",

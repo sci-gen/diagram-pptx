@@ -1,0 +1,12 @@
+requirementDiagram
+    requirement availability {
+      id: "R-01"
+      text: "Service remains available"
+      risk: high
+      verifymethod: test
+    }
+    element api {
+      type: service
+      docref: "API specification"
+    }
+    api - satisfies -> availability

@@ -1,0 +1,11 @@
+gantt
+    title Release plan
+    dateFormat YYYY-MM-DD
+    axisFormat %m/%d
+    todayMarker off
+    section Build
+      API implementation :a1, 2026-08-01, 5d
+      UI integration     :after a1, 4d
+    section Verify
+      Acceptance tests   :3d
+      Release            :milestone, 2026-08-13, 0d

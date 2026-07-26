@@ -96,6 +96,28 @@ def test_mermaid_svg_ignores_empty_label_rectangles() -> None:
     assert shapes[0].text == "Alpha"
 
 
+def test_mermaid_svg_samples_elliptical_arc_paths() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
+  <path d="M 20 30 m -10 0
+           a 10 10 0 1 0 20 0
+           a 10 10 0 1 0 -20 0"
+        fill="#5353FF" fill-opacity="0.1"
+        stroke="#5353FF" stroke-opacity="0.95"/>
+</svg>
+""",
+        kind="venn",
+    )
+
+    circle = next(item for item in scene.elements if isinstance(item, SceneShape))
+    assert circle.box.width == pytest.approx(20, abs=0.2)
+    assert circle.box.height == pytest.approx(20, abs=0.2)
+    assert len(circle.points) >= 24
+    assert circle.style.fill == "#5353FF1A"
+    assert circle.style.line == "#5353FFF2"
+
+
 def test_sequence_self_message_is_enlarged_and_labels_are_offset() -> None:
     scene = import_mermaid_svg(
         """\

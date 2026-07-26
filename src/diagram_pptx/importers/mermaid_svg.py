@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from dataclasses import dataclass
 from html import unescape
-from math import cos, radians, sin
+from math import atan2, ceil, cos, pi, radians, sin, sqrt
 
 from ..scene import (
     Box,
@@ -772,7 +772,16 @@ def _element_style(
     paint_servers: dict[str, str],
 ) -> ElementStyle:
     declarations: dict[str, str] = {}
-    for name in ("fill", "stroke", "color", "stroke-width", "stroke-dasharray", "opacity"):
+    for name in (
+        "fill",
+        "fill-opacity",
+        "stroke",
+        "stroke-opacity",
+        "color",
+        "stroke-width",
+        "stroke-dasharray",
+        "opacity",
+    ):
         if element.get(name) is not None:
             declarations[name] = element.get(name, "")
     for class_name in sorted(classes):
@@ -796,9 +805,11 @@ def _element_style(
         dash_numbers and all(abs(item) < 1e-9 for item in dash_numbers)
     )
     current_color = _color_or_none(declarations.get("color"))
+    fill = _paint_or_none(declarations.get("fill"), current_color, paint_servers)
+    line = _paint_or_none(declarations.get("stroke"), current_color, paint_servers)
     return ElementStyle(
-        fill=_paint_or_none(declarations.get("fill"), current_color, paint_servers),
-        line=_paint_or_none(declarations.get("stroke"), current_color, paint_servers),
+        fill=_color_with_alpha(fill, declarations.get("fill-opacity")),
+        line=_color_with_alpha(line, declarations.get("stroke-opacity")),
         text=current_color,
         line_width=line_width,
         dash="dash" if has_dash else None,
@@ -840,6 +851,19 @@ def _paint_or_none(
     if "nan" in text.lower():
         return current_color
     return _color_or_none(text)
+
+
+def _color_with_alpha(color: str | None, alpha_text: str | None) -> str | None:
+    if color is None or alpha_text is None:
+        return color
+    match = re.fullmatch(r"#([0-9A-Fa-f]{6})(?:[0-9A-Fa-f]{2})?", color)
+    if not match:
+        return color
+    try:
+        alpha = max(0.0, min(1.0, float(alpha_text)))
+    except ValueError:
+        return color
+    return f"#{match.group(1).upper()}{round(alpha * 255):02X}"
 
 
 def _parse_paint_servers(root: ET.Element) -> dict[str, str]:
@@ -1072,10 +1096,94 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             current = destination
             last_control = control
         elif upper == "A":
-            current = point(values[5], values[6], relative=relative)
-            points.append(current)
+            destination = point(values[5], values[6], relative=relative)
+            points.extend(
+                _sample_arc(
+                    current,
+                    rx=values[0],
+                    ry=values[1],
+                    axis_rotation=values[2],
+                    large_arc=bool(values[3]),
+                    sweep=bool(values[4]),
+                    end=destination,
+                )
+            )
+            current = destination
             last_control = None
     return [transform.apply(item) for item in points]
+
+
+def _sample_arc(
+    start: Point,
+    *,
+    rx: float,
+    ry: float,
+    axis_rotation: float,
+    large_arc: bool,
+    sweep: bool,
+    end: Point,
+) -> list[Point]:
+    """Approximate one SVG elliptical arc using endpoint parameterization."""
+
+    rx = abs(rx)
+    ry = abs(ry)
+    if rx < 1e-9 or ry < 1e-9 or (abs(start.x - end.x) < 1e-9 and abs(start.y - end.y) < 1e-9):
+        return [end]
+
+    phi = radians(axis_rotation % 360)
+    cos_phi = cos(phi)
+    sin_phi = sin(phi)
+    half_dx = (start.x - end.x) / 2
+    half_dy = (start.y - end.y) / 2
+    x1_prime = cos_phi * half_dx + sin_phi * half_dy
+    y1_prime = -sin_phi * half_dx + cos_phi * half_dy
+
+    scale = (x1_prime**2) / (rx**2) + (y1_prime**2) / (ry**2)
+    if scale > 1:
+        correction = sqrt(scale)
+        rx *= correction
+        ry *= correction
+
+    numerator = max(
+        0.0,
+        rx**2 * ry**2 - rx**2 * y1_prime**2 - ry**2 * x1_prime**2,
+    )
+    denominator = rx**2 * y1_prime**2 + ry**2 * x1_prime**2
+    coefficient = 0.0 if denominator < 1e-12 else sqrt(numerator / denominator)
+    if large_arc == sweep:
+        coefficient = -coefficient
+
+    center_x_prime = coefficient * (rx * y1_prime / ry)
+    center_y_prime = coefficient * (-ry * x1_prime / rx)
+    center_x = cos_phi * center_x_prime - sin_phi * center_y_prime + (start.x + end.x) / 2
+    center_y = sin_phi * center_x_prime + cos_phi * center_y_prime + (start.y + end.y) / 2
+
+    start_angle = atan2(
+        (y1_prime - center_y_prime) / ry,
+        (x1_prime - center_x_prime) / rx,
+    )
+    end_angle = atan2(
+        (-y1_prime - center_y_prime) / ry,
+        (-x1_prime - center_x_prime) / rx,
+    )
+    delta = end_angle - start_angle
+    if not sweep and delta > 0:
+        delta -= 2 * pi
+    elif sweep and delta < 0:
+        delta += 2 * pi
+
+    segment_count = max(2, ceil(abs(delta) / (pi / 12)))
+    result: list[Point] = []
+    for index in range(1, segment_count + 1):
+        angle = start_angle + delta * index / segment_count
+        result.append(
+            Point(
+                center_x + cos_phi * rx * cos(angle) - sin_phi * ry * sin(angle),
+                center_y + sin_phi * rx * cos(angle) + cos_phi * ry * sin(angle),
+            )
+        )
+    result[-1] = end
+    return result
 
 
 def _sample_cubic(

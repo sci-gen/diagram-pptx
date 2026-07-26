@@ -1,0 +1,6 @@
+flowchart LR
+    request([Request]) --> validate{Valid?}
+    validate -->|yes| process[Process]
+    validate -->|no| revise[Revise]
+    revise --> request
+    process --> store[(Database)]

@@ -1,0 +1,15 @@
+classDiagram
+    direction LR
+    class Order {
+      +id
+      +submit()
+    }
+    class Customer {
+      +email
+    }
+    class OrderRepository {
+      <<interface>>
+      +save(order)
+    }
+    Customer "1" --> "*" Order : places
+    OrderRepository <|.. Order : persists

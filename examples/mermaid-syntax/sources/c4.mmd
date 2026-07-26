@@ -1,0 +1,7 @@
+C4Context
+    title Checkout context
+    Person(customer, "Customer", "Places an order")
+    System(shop, "Online Shop", "Accepts and tracks orders")
+    System_Ext(payment, "Payment Provider", "Processes payment")
+    Rel(customer, shop, "Uses")
+    Rel(shop, payment, "Charges", "HTTPS")

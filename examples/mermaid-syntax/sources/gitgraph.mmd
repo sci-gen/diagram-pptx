@@ -1,0 +1,11 @@
+gitGraph LR:
+    commit id: "init"
+    branch develop
+    checkout develop
+    commit id: "feature"
+    checkout main
+    commit id: "hotfix"
+    checkout develop
+    merge main
+    checkout main
+    merge develop tag: "v1.0"

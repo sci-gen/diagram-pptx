@@ -23,6 +23,8 @@ Versioning.
   fixtures for all 31 registered families.
 - A machine-readable `diagram-pptx support --json` compatibility command and
   bilingual statement-level compatibility documentation.
+- A bilingual `examples/` index with Mermaid sources, PNG previews, and a
+  31-slide editable-shape PPTX covering every registered Mermaid family.
 
 ### Changed
 
@@ -34,6 +36,8 @@ Versioning.
   unless an explicit element or color-map text color is supplied.
 - Official SVG import now resolves `currentColor`, approximates gradients with
   a usable stop color, and sanitizes invalid generated paint values.
+- Official SVG import now preserves elliptical arc geometry and per-paint
+  opacity, improving Venn diagrams and other curved translucent shapes.
 
 ## [0.1.0a1] - 2026-07-26
 

@@ -1,0 +1,12 @@
+swimlane-beta LR
+  subgraph Customer
+    request[Submit request]
+    receive[Receive result]
+  end
+  subgraph Operations
+    review{Complete?}
+    fulfill[Fulfill]
+  end
+  request --> review
+  review -->|Yes| fulfill --> receive
+  review -->|No| request

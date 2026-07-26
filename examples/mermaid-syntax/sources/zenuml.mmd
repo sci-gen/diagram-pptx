@@ -1,0 +1,7 @@
+zenuml
+    title Checkout
+    @Actor Customer
+    Customer->Store: submit()
+    Store->Payment: authorize()
+    Payment-->Store: approved
+    Store-->Customer: confirmation

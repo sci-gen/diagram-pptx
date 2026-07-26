@@ -1,0 +1,316 @@
+{
+  "mermaid_version": "11.16.0",
+  "deck": "mermaid-11.16-gallery.pptx",
+  "examples": [
+    {
+      "slide": 1,
+      "kind": "flowchart",
+      "title": "Flowchart",
+      "backend": "native",
+      "backend_used": "native",
+      "source": "sources/flowchart.mmd",
+      "image": "images/flowchart.png",
+      "editable_shape_count": 20
+    },
+    {
+      "slide": 2,
+      "kind": "swimlanes",
+      "title": "Swimlanes",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/swimlanes.mmd",
+      "image": "images/swimlanes.png",
+      "editable_shape_count": 26
+    },
+    {
+      "slide": 3,
+      "kind": "sequence",
+      "title": "Sequence Diagram",
+      "backend": "native",
+      "backend_used": "native",
+      "source": "sources/sequence.mmd",
+      "image": "images/sequence.png",
+      "editable_shape_count": 21
+    },
+    {
+      "slide": 4,
+      "kind": "class",
+      "title": "Class Diagram",
+      "backend": "native",
+      "backend_used": "native",
+      "source": "sources/class.mmd",
+      "image": "images/class.png",
+      "editable_shape_count": 11
+    },
+    {
+      "slide": 5,
+      "kind": "state",
+      "title": "State Diagram",
+      "backend": "native",
+      "backend_used": "native",
+      "source": "sources/state.mmd",
+      "image": "images/state.png",
+      "editable_shape_count": 16
+    },
+    {
+      "slide": 6,
+      "kind": "er",
+      "title": "Entity Relationship Diagram",
+      "backend": "native",
+      "backend_used": "native",
+      "source": "sources/er.mmd",
+      "image": "images/er.png",
+      "editable_shape_count": 7
+    },
+    {
+      "slide": 7,
+      "kind": "journey",
+      "title": "User Journey",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/journey.mmd",
+      "image": "images/journey.png",
+      "editable_shape_count": 124
+    },
+    {
+      "slide": 8,
+      "kind": "gantt",
+      "title": "Gantt",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/gantt.mmd",
+      "image": "images/gantt.png",
+      "editable_shape_count": 44
+    },
+    {
+      "slide": 9,
+      "kind": "pie",
+      "title": "Pie / Donut",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/pie.mmd",
+      "image": "images/pie.png",
+      "editable_shape_count": 18
+    },
+    {
+      "slide": 10,
+      "kind": "quadrant",
+      "title": "Quadrant Chart",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/quadrant.mmd",
+      "image": "images/quadrant.png",
+      "editable_shape_count": 23
+    },
+    {
+      "slide": 11,
+      "kind": "requirement",
+      "title": "Requirement Diagram",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/requirement.mmd",
+      "image": "images/requirement.png",
+      "editable_shape_count": 18
+    },
+    {
+      "slide": 12,
+      "kind": "gitgraph",
+      "title": "GitGraph",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/gitgraph.mmd",
+      "image": "images/gitgraph.png",
+      "editable_shape_count": 49
+    },
+    {
+      "slide": 13,
+      "kind": "c4",
+      "title": "C4 Diagram",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/c4.mmd",
+      "image": "images/c4.png",
+      "editable_shape_count": 21
+    },
+    {
+      "slide": 14,
+      "kind": "mindmap",
+      "title": "Mindmap",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/mindmap.mmd",
+      "image": "images/mindmap.png",
+      "editable_shape_count": 119
+    },
+    {
+      "slide": 15,
+      "kind": "timeline",
+      "title": "Timeline",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/timeline.mmd",
+      "image": "images/timeline.png",
+      "editable_shape_count": 140
+    },
+    {
+      "slide": 16,
+      "kind": "zenuml",
+      "title": "ZenUML",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/zenuml.mmd",
+      "image": "images/zenuml.png",
+      "editable_shape_count": 70
+    },
+    {
+      "slide": 17,
+      "kind": "sankey",
+      "title": "Sankey",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/sankey.mmd",
+      "image": "images/sankey.png",
+      "editable_shape_count": 24
+    },
+    {
+      "slide": 18,
+      "kind": "xychart",
+      "title": "XY Chart",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/xychart.mmd",
+      "image": "images/xychart.png",
+      "editable_shape_count": 46
+    },
+    {
+      "slide": 19,
+      "kind": "block",
+      "title": "Block Diagram",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/block.mmd",
+      "image": "images/block.png",
+      "editable_shape_count": 8
+    },
+    {
+      "slide": 20,
+      "kind": "packet",
+      "title": "Packet Diagram",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/packet.mmd",
+      "image": "images/packet.png",
+      "editable_shape_count": 21
+    },
+    {
+      "slide": 21,
+      "kind": "kanban",
+      "title": "Kanban",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/kanban.mmd",
+      "image": "images/kanban.png",
+      "editable_shape_count": 17
+    },
+    {
+      "slide": 22,
+      "kind": "architecture",
+      "title": "Architecture Diagram",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/architecture.mmd",
+      "image": "images/architecture.png",
+      "editable_shape_count": 227
+    },
+    {
+      "slide": 23,
+      "kind": "radar",
+      "title": "Radar",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/radar.mmd",
+      "image": "images/radar.png",
+      "editable_shape_count": 22
+    },
+    {
+      "slide": 24,
+      "kind": "eventmodeling",
+      "title": "Event Modeling",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/eventmodeling.mmd",
+      "image": "images/eventmodeling.png",
+      "editable_shape_count": 20
+    },
+    {
+      "slide": 25,
+      "kind": "treemap",
+      "title": "Treemap",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/treemap.mmd",
+      "image": "images/treemap.png",
+      "editable_shape_count": 25
+    },
+    {
+      "slide": 26,
+      "kind": "venn",
+      "title": "Venn",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/venn.mmd",
+      "image": "images/venn.png",
+      "editable_shape_count": 34
+    },
+    {
+      "slide": 27,
+      "kind": "ishikawa",
+      "title": "Ishikawa",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/ishikawa.mmd",
+      "image": "images/ishikawa.png",
+      "editable_shape_count": 22
+    },
+    {
+      "slide": 28,
+      "kind": "wardley",
+      "title": "Wardley Map",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/wardley.mmd",
+      "image": "images/wardley.png",
+      "editable_shape_count": 26
+    },
+    {
+      "slide": 29,
+      "kind": "cynefin",
+      "title": "Cynefin",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/cynefin.mmd",
+      "image": "images/cynefin.png",
+      "editable_shape_count": 80
+    },
+    {
+      "slide": 30,
+      "kind": "treeview",
+      "title": "TreeView",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/treeview.mmd",
+      "image": "images/treeview.png",
+      "editable_shape_count": 22
+    },
+    {
+      "slide": 31,
+      "kind": "railroad",
+      "title": "Railroad",
+      "backend": "official",
+      "backend_used": "official",
+      "source": "sources/railroad.mmd",
+      "image": "images/railroad.png",
+      "editable_shape_count": 256
+    }
+  ]
+}
