@@ -145,6 +145,29 @@ def test_mermaid_svg_preserves_text_metrics_rotation_and_tspan_position() -> Non
     assert label.box.height == pytest.approx(19.2)
 
 
+def test_mermaid_svg_enlarges_radar_typography_for_slide_readability() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 700">
+  <text class="radarAxisLabel" x="350" y="30"
+        text-anchor="middle" font-size="12">Speed</text>
+  <text class="radarLegendText" x="610" y="90"
+        font-size="12">Alpha</text>
+  <text class="radarTitle" x="350" y="15"
+        text-anchor="middle" font-size="16">Product comparison</text>
+</svg>
+""",
+        kind="radar",
+    )
+
+    labels = {item.text: item for item in scene.elements if isinstance(item, SceneText)}
+    assert labels["Speed"].style.font_size == 24
+    assert labels["Alpha"].style.font_size == 20
+    assert labels["Product comparison"].style.font_size == 24
+    assert labels["Speed"].box.width == pytest.approx(67.68)
+    assert labels["Product comparison"].box.center.x == pytest.approx(labels["Speed"].box.center.x)
+
+
 def test_mermaid_svg_composes_nested_transforms_and_nested_svg_viewbox() -> None:
     scene = import_mermaid_svg(
         """\

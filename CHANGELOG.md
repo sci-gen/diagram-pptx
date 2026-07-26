@@ -41,6 +41,8 @@ Versioning.
 - Official SVG import now preserves nested viewport transforms, DOM paint
   order, rotated primitives and text, text anchors/baselines, multiline
   tspans, inherited presentation attributes, and selector-aware CSS styling.
+- Official Radar output now enlarges axis labels, legends, and chart titles
+  for presentation-scale readability.
 
 ## [0.1.0a1] - 2026-07-26
 

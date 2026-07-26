@@ -137,8 +137,50 @@ def import_mermaid_svg(svg: str | bytes, *, kind: str) -> DrawingScene:
     _infer_connector_endpoints(scene)
     _snap_connector_ends(scene)
     _improve_sequence_self_messages(scene)
+    _improve_radar_typography(scene)
     scene.recompute_extents()
     return scene
+
+
+def _improve_radar_typography(scene: DrawingScene) -> None:
+    """Keep Mermaid radar labels readable after fitting the chart to a slide."""
+
+    if scene.kind != "radar":
+        return
+    target_sizes = {
+        "radarAxisLabel": 24.0,
+        "radarLegendText": 20.0,
+        "radarTitle": 24.0,
+    }
+    for item in scene.elements:
+        if not isinstance(item, SceneText):
+            continue
+        target_size = next(
+            (size for class_name, size in target_sizes.items() if class_name in item.classes),
+            None,
+        )
+        if target_size is None:
+            continue
+        current_size = item.style.font_size or 14.0
+        if current_size >= target_size:
+            continue
+        scale = target_size / current_size
+        old_box = item.box
+        width = old_box.width * scale
+        height = old_box.height * scale
+        if item.align == "left":
+            left = old_box.x
+        elif item.align == "right":
+            left = old_box.x + old_box.width - width
+        else:
+            left = old_box.center.x - width / 2
+        item.box = Box(
+            left,
+            old_box.center.y - height / 2,
+            width,
+            height,
+        )
+        item.style.font_size = target_size
 
 
 def _walk(
