@@ -9,7 +9,9 @@ from .compiler import (
     CompileResult,
     PlacementPreset,
     RelativeBounds,
+    SceneResult,
     StylePreset,
+    build_scene,
     compile_diagram,
     render_mermaid,
     resolve_diagram_bounds,
@@ -17,10 +19,12 @@ from .compiler import (
 from .diagnostics import (
     Diagnostic,
     DiagramPptxError,
+    ImageExportDependencyError,
     MermaidParseError,
     MermaidRuntimeError,
     PartialModelMutationError,
 )
+from .export import ExportResult, ImageFormat, save_diagram, to_jpeg, to_png, to_svg
 from .layout.layered import LayeredLayout
 from .mermaid import parse_mermaid, serialize_mermaid
 from .model import (
@@ -51,6 +55,7 @@ from .model import (
     diagram_from_dict,
 )
 from .render.python_pptx import PythonPptxRenderer, RenderResult, RenderTheme
+from .render.svg import SvgRenderer, SvgRenderResult
 from .scene import (
     Box,
     DrawingScene,
@@ -99,6 +104,9 @@ __all__ = [
     "FlowEdge",
     "FlowGroup",
     "FlowNode",
+    "ExportResult",
+    "ImageExportDependencyError",
+    "ImageFormat",
     "LayeredLayout",
     "MermaidDocument",
     "MermaidParseError",
@@ -111,6 +119,7 @@ __all__ = [
     "RenderResult",
     "RenderTheme",
     "RelativeBounds",
+    "SceneResult",
     "SceneConnector",
     "SceneContainer",
     "SceneShape",
@@ -123,6 +132,9 @@ __all__ = [
     "StateTransition",
     "StyleResolver",
     "StylePreset",
+    "SvgRenderResult",
+    "SvgRenderer",
+    "build_scene",
     "compile_diagram",
     "contrast_text_color",
     "diagram_from_dict",
@@ -131,6 +143,10 @@ __all__ = [
     "resolve_diagram_bounds",
     "sample_colormap",
     "serialize_mermaid",
+    "save_diagram",
+    "to_jpeg",
+    "to_png",
+    "to_svg",
 ]
 
 __version__ = "0.1.0a1"

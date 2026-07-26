@@ -153,6 +153,129 @@ class CompileResult:
         }
 
 
+@dataclass(slots=True)
+class SceneResult:
+    """Renderer-neutral result shared by PPTX and image exporters."""
+
+    backend_used: str
+    scene: DrawingScene
+    diagnostics: list[Diagnostic] = field(default_factory=list)
+    mermaid_version: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a compact JSON-safe summary suitable for a tool response."""
+
+        return {
+            "backend_used": self.backend_used,
+            "mermaid_version": self.mermaid_version,
+            "diagram_kind": self.scene.kind,
+            "diagnostics": [item.to_dict() for item in self.diagnostics],
+            "element_count": len(self.scene.elements),
+            "width": self.scene.width,
+            "height": self.scene.height,
+        }
+
+
+def build_scene(
+    diagram: MermaidDocument | SemanticDiagram,
+    *,
+    backend: CompileBackend | BackendName = "native",
+    style: StylePreset = "native",
+    theme: DiagramTheme | Mapping[str, Any] | None = None,
+    colors: ColorMapStyle | ColorMapOptions | ColorMapName | None = None,
+    source_style: SourceStylePolicy = "merge",
+    style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
+    mmdc_path: str | None = None,
+    strict: bool = False,
+    timeout: float = 30.0,
+    **legacy: Any,
+) -> SceneResult:
+    """Build a styled renderer-neutral scene without requiring a slide.
+
+    This is the common compilation stage used by PowerPoint, SVG, PNG, and
+    JPEG output. Most callers should use :func:`compile_diagram`,
+    :func:`save_diagram`, or the convenience methods on
+    :class:`MermaidDocument`.
+    """
+
+    colormap_style = _coerce_color_input(colors, legacy)
+    if legacy:
+        unknown = ", ".join(sorted(legacy))
+        raise TypeError(f"Unexpected build_scene options: {unknown}")
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero")
+    document = (
+        diagram
+        if isinstance(diagram, MermaidDocument)
+        else MermaidDocument(source=serialize_mermaid(diagram), model=diagram)
+    )
+    requested = CompileBackend(backend)
+    if not document.is_fully_modeled and document.model_changed:
+        raise PartialModelMutationError(
+            "This Mermaid document contains unsupported statements and its partial "
+            "semantic model was changed. Compile the unchanged source with the official "
+            "backend, or remove unsupported syntax before editing the model."
+        )
+
+    backend_used = requested
+    mermaid_version: str | None = None
+    diagnostics = list(document.diagnostics)
+
+    if requested == CompileBackend.AUTO:
+        from .official import find_mmdc
+
+        executable = find_mmdc(mmdc_path)
+        backend_used = CompileBackend.OFFICIAL if executable is not None else CompileBackend.NATIVE
+        if executable is None:
+            diagnostics.append(
+                Diagnostic(
+                    code="mmdc-not-found-native-fallback",
+                    severity="info",
+                    backend="native",
+                    message=(
+                        'mmdc was not found; backend="auto" selected the Native backend. '
+                        "Install Node.js and @mermaid-js/mermaid-cli to enable Official "
+                        "geometry."
+                    ),
+                )
+            )
+
+    if backend_used == CompileBackend.NATIVE:
+        if not document.is_fully_modeled:
+            raise MermaidRuntimeError(
+                "The input contains Mermaid syntax that the native backend cannot model. "
+                "Official geometry requires Node.js and @mermaid-js/mermaid-cli. Install "
+                "Node.js, run `npm install -g "
+                "@mermaid-js/mermaid-cli@11.16.0`, provide mmdc_path, or use strict "
+                "parsing to locate unsupported statements."
+            )
+        scene = layout_native(document.model)
+    else:
+        from .official import render_official_scene
+
+        source = serialize_mermaid(document.model) if document.model_changed else document.source
+        official = render_official_scene(
+            source,
+            kind=document.model.kind,
+            mmdc_path=mmdc_path,
+            strict=strict,
+            timeout=timeout,
+        )
+        scene = official.scene
+        mermaid_version = official.version
+        diagnostics.extend(official.diagnostics)
+
+    resolved_theme = DEFAULT_THEME.merged(style_preset(style)).merged(theme)
+    resolver = StyleResolver(resolved_theme, source_style=source_style)
+    _resolve_scene_styles(scene, resolver, style_overrides or {}, colormap_style)
+    return SceneResult(
+        backend_used=backend_used.value,
+        diagnostics=diagnostics,
+        mermaid_version=mermaid_version,
+        scene=scene,
+    )
+
+
 def compile_diagram(
     diagram: MermaidDocument | SemanticDiagram,
     *,
@@ -214,62 +337,19 @@ def compile_diagram(
         exclusive. If all are omitted, ``position="full"`` is used.
     """
 
-    colormap_style = _coerce_color_input(colors, legacy)
-    if legacy:
-        unknown = ", ".join(sorted(legacy))
-        raise TypeError(f"Unexpected compile_diagram options: {unknown}")
-    if timeout <= 0:
-        raise ValueError("timeout must be greater than zero")
-    document = (
-        diagram
-        if isinstance(diagram, MermaidDocument)
-        else MermaidDocument(source=serialize_mermaid(diagram), model=diagram)
+    scene_result = build_scene(
+        diagram,
+        backend=backend,
+        style=style,
+        theme=theme,
+        colors=colors,
+        source_style=source_style,
+        style_overrides=style_overrides,
+        mmdc_path=mmdc_path,
+        strict=strict,
+        timeout=timeout,
+        **legacy,
     )
-    requested = CompileBackend(backend)
-    if not document.is_fully_modeled and document.model_changed:
-        raise PartialModelMutationError(
-            "This Mermaid document contains unsupported statements and its partial "
-            "semantic model was changed. Compile the unchanged source with the official "
-            "backend, or remove unsupported syntax before editing the model."
-        )
-
-    backend_used = requested
-    mermaid_version: str | None = None
-    diagnostics = list(document.diagnostics)
-
-    if requested == CompileBackend.AUTO:
-        from .official import find_mmdc
-
-        backend_used = (
-            CompileBackend.OFFICIAL if find_mmdc(mmdc_path) is not None else CompileBackend.NATIVE
-        )
-
-    if backend_used == CompileBackend.NATIVE:
-        if not document.is_fully_modeled:
-            raise MermaidRuntimeError(
-                "The input contains Mermaid syntax that the native backend cannot model. "
-                "Install @mermaid-js/mermaid-cli, provide mmdc_path, or use strict parsing "
-                "to locate unsupported statements."
-            )
-        scene = layout_native(document.model)
-    else:
-        from .official import render_official_scene
-
-        source = serialize_mermaid(document.model) if document.model_changed else document.source
-        official = render_official_scene(
-            source,
-            kind=document.model.kind,
-            mmdc_path=mmdc_path,
-            strict=strict,
-            timeout=timeout,
-        )
-        scene = official.scene
-        mermaid_version = official.version
-        diagnostics.extend(official.diagnostics)
-
-    resolved_theme = DEFAULT_THEME.merged(style_preset(style)).merged(theme)
-    resolver = StyleResolver(resolved_theme, source_style=source_style)
-    _resolve_scene_styles(scene, resolver, style_overrides or {}, colormap_style)
     resolved_bounds = resolve_diagram_bounds(
         slide,
         bounds=bounds,
@@ -277,17 +357,17 @@ def compile_diagram(
         relative_bounds=relative_bounds,
     )
     native_result = (renderer or PythonPptxRenderer()).render(
-        scene,
+        scene_result.scene,
         target=slide,
         bounds=resolved_bounds,
         group=group,
-        group_name=f"diagram:{document.model.kind}",
+        group_name=f"diagram:{scene_result.scene.kind}",
     )
     return CompileResult(
-        backend_used=backend_used.value,
-        diagnostics=diagnostics,
-        mermaid_version=mermaid_version,
-        scene=scene,
+        backend_used=scene_result.backend_used,
+        diagnostics=scene_result.diagnostics,
+        mermaid_version=scene_result.mermaid_version,
+        scene=scene_result.scene,
         render_result=native_result,
     )
 

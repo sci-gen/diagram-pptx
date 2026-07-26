@@ -7,6 +7,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, Protocol, TypeVar
 
 from .diagnostics import Diagnostic
@@ -78,6 +79,38 @@ class SelectableDiagram:
             if (role is None or element.role == role)
             and (class_ is None or class_ in element.classes)
         ]
+
+    def save(self, path: str | Path, **options: Any) -> Any:
+        """Save this typed diagram as SVG, PNG, or JPEG.
+
+        The format is inferred from the path suffix. PNG and JPEG require the
+        optional ``diagram-pptx[image]`` dependencies.
+        """
+
+        from .export import save_diagram
+
+        return save_diagram(self, path, **options)
+
+    def to_svg(self, **options: Any) -> str:
+        """Return this diagram as self-contained SVG text."""
+
+        from .export import to_svg
+
+        return to_svg(self, **options)
+
+    def to_png(self, **options: Any) -> bytes:
+        """Return PNG bytes; accepts ``dpi``, dimensions, and compile options."""
+
+        from .export import to_png
+
+        return to_png(self, **options)
+
+    def to_jpeg(self, **options: Any) -> bytes:
+        """Return JPEG bytes with transparency flattened onto a background."""
+
+        from .export import to_jpeg
+
+        return to_jpeg(self, **options)
 
 
 class DiagramModel(Protocol):
@@ -946,6 +979,39 @@ class MermaidDocument:
             "required_backend": self.required_backend,
             "metadata": dict(self.metadata),
         }
+
+    def save(self, path: str | Path, **options: Any) -> Any:
+        """Save this parsed document as SVG, PNG, or JPEG.
+
+        Examples:
+            ``document.save("diagram.svg")``
+            ``document.save("diagram.png", dpi=600)``
+        """
+
+        from .export import save_diagram
+
+        return save_diagram(self, path, **options)
+
+    def to_svg(self, **options: Any) -> str:
+        """Return this document as self-contained SVG text."""
+
+        from .export import to_svg
+
+        return to_svg(self, **options)
+
+    def to_png(self, **options: Any) -> bytes:
+        """Return PNG bytes; install ``diagram-pptx[image]`` first."""
+
+        from .export import to_png
+
+        return to_png(self, **options)
+
+    def to_jpeg(self, **options: Any) -> bytes:
+        """Return JPEG bytes; install ``diagram-pptx[image]`` first."""
+
+        from .export import to_jpeg
+
+        return to_jpeg(self, **options)
 
 
 # ---------------------------------------------------------------------------

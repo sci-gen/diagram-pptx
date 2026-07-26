@@ -50,3 +50,7 @@ class PartialModelMutationError(DiagramPptxError):
 
 class MermaidRuntimeError(DiagramPptxError):
     """Raised when the official Mermaid runtime cannot produce usable SVG."""
+
+
+class ImageExportDependencyError(DiagramPptxError, ImportError):
+    """Raised when an optional image-export runtime is not installed."""

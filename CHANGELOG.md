@@ -6,7 +6,21 @@ Versioning.
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Matplotlib-like `save()`, `to_svg()`, `to_png()`, and `to_jpeg()` methods on
+  parsed Mermaid documents and all typed diagram models.
+- A self-contained SVG renderer and optional high-DPI PNG/JPEG export through
+  the `image` extra.
+- The `all` aggregate extra for every optional runtime feature.
+- JSON-safe `SceneResult` and `ExportResult` operation summaries.
+
+### Changed
+
+- PowerPoint and image output now share the same public `build_scene()` stage,
+  including backend selection, style resolution, themes, and color maps.
+- Missing Mermaid CLI errors now explain the Node.js/npm prerequisite;
+  `backend="auto"` records an informational Native-fallback diagnostic.
 
 ## [0.1.0a1] - 2026-07-26
 

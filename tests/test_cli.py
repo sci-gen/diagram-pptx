@@ -80,3 +80,13 @@ def test_cli_inspect_reports_model_coverage(
     assert payload["kind"] == "flowchart"
     assert payload["modeling_rate"] < 1
     assert payload["required_backend"] == "official"
+
+
+def test_cli_doctor_reports_image_export(capsys) -> None:
+    status = main(["doctor", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert status == 0
+    assert payload["image_export"]["svg"] is True
+    assert payload["image_export"]["png"] is True
+    assert payload["image_export"]["jpeg"] is True

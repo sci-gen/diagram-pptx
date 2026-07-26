@@ -5,7 +5,10 @@
 The package boundary is:
 
 ```text
-parse → semantic model → layout → DrawingScene → style resolution → python-pptx
+parse → semantic model → layout → DrawingScene → style resolution
+                                                     ├─ python-pptx
+                                                     ├─ SVG
+                                                     └─ PNG/JPEG
 ```
 
 Each stage has one responsibility:
@@ -16,10 +19,14 @@ Each stage has one responsibility:
 4. `DrawingScene` stores positioned shapes, connectors, text, containers,
    z-order, and semantic IDs.
 5. `StyleResolver` applies theme precedence and final color mapping.
-6. `PythonPptxRenderer` knows OOXML and emits editable native slide objects.
+6. `PythonPptxRenderer` knows OOXML and emits editable native slide objects;
+   `SvgRenderer` emits self-contained vector output, which the optional image
+   runtime can rasterize as PNG or JPEG.
 
-The renderer never reads Mermaid syntax or a semantic model. Frontends and
-layout engines never import PowerPoint enums or XML helpers.
+Renderers never read Mermaid syntax or a semantic model. Frontends and layout
+engines never import PowerPoint enums or XML helpers. `build_scene()` is the
+shared public boundary; it selects geometry and resolves all styles before any
+output-format-specific code runs.
 
 `python-pptx` is an external runtime dependency rather than vendored code.
 Callers create or reuse their own `Presentation` and slide, then
@@ -122,7 +129,8 @@ ambiguity.
 The core deliberately contains no vendor-specific function-tool wrappers.
 MCP servers, Codex plugins, and other agent adapters are separate integration
 layers. They bind a current `python-pptx` slide, invoke the typed API, and can
-return `CompileResult.to_dict()` as a JSON-safe summary.
+return `CompileResult.to_dict()` or `ExportResult.to_dict()` as a JSON-safe
+summary.
 
 The tool's input schema belongs to the adapter and should be derived from its
 typed MCP handler rather than emitted by the core package. Operational
@@ -161,10 +169,17 @@ A new declarative syntax should:
    its semantics differ.
 2. Provide `to_dict()` / `from_dict()` and a versioned schema update.
 3. Add a layout adapter that returns `DrawingScene`.
-4. Reuse StyleResolver and PythonPptxRenderer unchanged.
+4. Reuse StyleResolver and the existing output renderers unchanged.
 
 A new geometry backend accepts a semantic model and returns `DrawingScene`.
 General SVG conversion does not belong in the Mermaid-specific importer.
+
+SVG serialization is dependency-free. PNG and JPEG are optional because they
+need the `resvg_py` raster runtime; JPEG additionally flattens alpha through
+Pillow. The `image` extra installs these dependencies, while `all` aggregates
+all optional runtime features without development tooling. Native image export
+does not require Node.js. Official geometry still requires the separately
+installed Mermaid CLI and its Node.js/Chromium runtime.
 
 ## Compatibility target
 

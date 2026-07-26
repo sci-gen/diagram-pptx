@@ -62,9 +62,11 @@ def render_official_scene(
     executable = find_mmdc(mmdc_path)
     if executable is None:
         raise MermaidRuntimeError(
-            "Official backend requires @mermaid-js/mermaid-cli. Install it with "
-            "`npm install -g @mermaid-js/mermaid-cli@11.16.0`, pass mmdc_path, "
-            "or use the project Docker image."
+            "Official backend requires Mermaid CLI (mmdc), which is not installed by "
+            "pip. Install Node.js (including npm), then run "
+            "`npm install -g @mermaid-js/mermaid-cli@11.16.0`. Verify the setup with "
+            "`mmdc --version` and `diagram-pptx doctor`, pass mmdc_path explicitly, "
+            "select backend='native', or use the project Docker image."
         )
     version = mmdc_version(executable)
     diagnostics: list[Diagnostic] = []

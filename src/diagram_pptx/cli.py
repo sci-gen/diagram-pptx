@@ -29,6 +29,13 @@ def _package_version() -> str:
         return "0.1.0a1"
 
 
+def _optional_package_version(name: str) -> str | None:
+    try:
+        return version(name)
+    except PackageNotFoundError:
+        return None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="diagram-pptx",
@@ -226,6 +233,8 @@ def _inspect_file(path: Path, *, strict: bool, as_json: bool) -> None:
 
 def _doctor(*, mmdc_path: str | None, as_json: bool) -> None:
     executable = find_mmdc(mmdc_path)
+    resvg_version = _optional_package_version("resvg_py")
+    pillow_version = _optional_package_version("Pillow")
     payload = {
         "diagram_pptx": _package_version(),
         "python": platform.python_version(),
@@ -234,6 +243,13 @@ def _doctor(*, mmdc_path: str | None, as_json: bool) -> None:
             "available": executable is not None,
             "path": executable,
             "version": mmdc_version(executable) if executable else None,
+        },
+        "image_export": {
+            "svg": True,
+            "png": resvg_version is not None,
+            "jpeg": resvg_version is not None and pillow_version is not None,
+            "resvg_py": resvg_version,
+            "pillow": pillow_version,
         },
         "libreoffice": shutil.which("libreoffice") or shutil.which("soffice"),
         "pdftoppm": shutil.which("pdftoppm"),
@@ -250,6 +266,15 @@ def _doctor(*, mmdc_path: str | None, as_json: bool) -> None:
             f"{payload['mmdc']['version'] or 'unknown'} ({payload['mmdc']['path']})"
             if payload["mmdc"]["available"]
             else "not found (native backend remains available)"
+        )
+    )
+    print("SVG export: available")
+    print(
+        "PNG/JPEG export: "
+        + (
+            f"available (resvg_py {resvg_version}, Pillow {pillow_version})"
+            if payload["image_export"]["jpeg"]
+            else 'not installed (run `pip install "diagram-pptx[image]"`)'
         )
     )
     print(f"LibreOffice: {payload['libreoffice'] or 'not found'}")
