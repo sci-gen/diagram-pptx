@@ -6,6 +6,19 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.1.0b2] - 2026-07-27
+
+### Changed
+
+- Updated the GitHub Actions workflow runtime dependencies to their Node.js
+  24-based major releases.
+
+### Fixed
+
+- Converted Mermaid Timeline cards emitted as SVG paths into standard rounded
+  PowerPoint AutoShapes so labels remain vertically centered in LibreOffice
+  and other OOXML renderers while staying directly editable on each shape.
+
 ## [0.1.0b1] - 2026-07-27
 
 ### Added
@@ -125,6 +138,7 @@ Versioning.
 - Corrected Native Sequence return-message dashes and label placement, Class
   association arrowheads, and State start/end pseudo-state rendering.
 
-[Unreleased]: https://github.com/sci-gen/diagram-pptx/compare/v0.1.0b1...HEAD
+[Unreleased]: https://github.com/sci-gen/diagram-pptx/compare/v0.1.0b2...HEAD
+[0.1.0b2]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0b2
 [0.1.0b1]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0b1
 [0.1.0a1]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0a1

@@ -27,7 +27,7 @@ def _package_version() -> str:
     try:
         return version("diagram-pptx")
     except PackageNotFoundError:
-        return "0.1.0b1"
+        return "0.1.0b2"
 
 
 def _optional_package_version(name: str) -> str | None:
