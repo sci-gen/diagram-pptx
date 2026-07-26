@@ -16,6 +16,7 @@ Versioning.
 - JSON-safe `SceneResult` and `ExportResult` operation summaries.
 - A shared `label_background` option for connector and message labels in
   PowerPoint, SVG, PNG, JPEG, and the CLI.
+- A bilingual user guide and a generated quick-start diagram preview.
 
 ### Changed
 

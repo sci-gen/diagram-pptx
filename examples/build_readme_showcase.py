@@ -50,6 +50,11 @@ sequenceDiagram
     end
 """
 
+API_DATABASE_FLOW = """\
+flowchart LR
+    api([API]) --> db[(Database)]
+"""
+
 HERO_DIAGRAMS = (
     """\
 flowchart TD
@@ -247,6 +252,7 @@ def main(output_directory: str = "docs/assets/readme") -> None:
     output = Path(output_directory)
     output.mkdir(parents=True, exist_ok=True)
     _build_hero(output / "diagram-pptx-gallery.png")
+    _save(API_DATABASE_FLOW, output / "api-database-flow.png", width_px=900)
     _save(ORDER_FLOW, output / "order-fulfillment-flow.png", width_px=2200)
     _save(CHECKOUT_SEQUENCE, output / "checkout-sequence.png", width_px=1900)
 

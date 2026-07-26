@@ -1,3 +1,7 @@
+<div align="right">
+  <strong>English</strong> · <a href="./user-guide.ja.md">日本語</a>
+</div>
+
 # diagram-pptx user guide
 
 This guide contains the operational details intentionally kept out of the
@@ -29,7 +33,20 @@ source = """
 flowchart LR
     api([API]) --> db[(Database)]
 """
+```
 
+<p align="center">
+  <img
+    src="./assets/readme/api-database-flow.png"
+    alt="API connected to a database, rendered by diagram-pptx"
+    width="640"
+  >
+</p>
+
+The image above is Native output generated directly from that Mermaid source.
+The model can then be edited and compiled into an existing slide:
+
+```python
 document = parse_mermaid(source)
 document.model.nodes["db"].label = "Primary DB"
 document.model.nodes["db"].classes.add("storage")

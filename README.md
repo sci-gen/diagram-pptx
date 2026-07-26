@@ -80,7 +80,7 @@ diagram.save("diagram.png", dpi=300)
 
 ## Documentation
 
-- [User guide](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.md)
+- [User guide](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.md) · [日本語](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.ja.md)
 - [Architecture and extension contracts](https://github.com/sci-gen/diagram-pptx/blob/main/docs/architecture.md)
 - [MCP and Codex integration](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mcp-integration.md)
 - [Examples](https://github.com/sci-gen/diagram-pptx/tree/main/examples)
