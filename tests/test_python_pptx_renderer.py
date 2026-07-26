@@ -2,6 +2,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from pptx import Presentation
+from pptx.enum.dml import MSO_FILL_TYPE
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.util import Inches
 
@@ -107,7 +108,74 @@ def test_sequence_message_label_is_above_the_line_without_an_opaque_fill() -> No
     )
     label = result.edge_label_shapes[0]
     assert label.top + label.height < line.top
-    assert "<a:noFill/>" in label._element.xml
+    assert label.fill.type == MSO_FILL_TYPE.BACKGROUND
+
+
+def test_short_connector_label_moves_above_the_line_without_hiding_the_arrow() -> None:
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = render_mermaid(
+        "flowchart LR\nA[Start] -->|complete| B[Done]\n",
+        slide=slide,
+        bounds=(0.7, 0.7, 3.0, 2.0),
+        backend="native",
+        group=False,
+    )
+
+    line = result.connectors[-1]
+    label = result.edge_label_shapes[0]
+    assert label.top + label.height < line.top
+    assert label.fill.type == MSO_FILL_TYPE.BACKGROUND
+    assert '<a:tailEnd type="triangle" w="med" len="med"/>' in line._element.xml
+
+
+def test_bent_vertical_label_stays_on_line_while_short_horizontal_labels_detach() -> None:
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = render_mermaid(
+        """
+        stateDiagram-v2
+            direction LR
+            Idle --> Workflow : start
+            state Workflow {
+                [*] --> Validate
+                Validate --> Execute : valid
+                Execute --> [*]
+            }
+            Workflow --> Idle : cancel
+            Workflow --> Done : complete
+        """,
+        slide=slide,
+        bounds=(0.7, 0.7, 11.9, 6.1),
+        backend="native",
+        group=False,
+    )
+    labels = {shape.text: shape for shape in result.edge_label_shapes}
+
+    assert labels["valid"].fill.type == MSO_FILL_TYPE.SOLID
+    assert labels["cancel"].fill.type == MSO_FILL_TYPE.BACKGROUND
+    assert labels["complete"].fill.type == MSO_FILL_TYPE.BACKGROUND
+
+
+def test_visual_container_uses_a_subtle_corner_radius() -> None:
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = render_mermaid(
+        """
+        flowchart LR
+            subgraph G[Group]
+                A --> B
+            end
+        """,
+        slide=slide,
+        bounds=(0.7, 0.7, 11.9, 6.1),
+        backend="native",
+        group=False,
+    )
+
+    outline = result.group_shapes[0]
+    assert outline.adjustments[0] == 0.06
+    assert 'fmla="val 6000"' in outline._element.xml
 
 
 def test_native_font_size_scales_with_fitted_diagram() -> None:

@@ -369,6 +369,8 @@ class PythonPptxRenderer:
         outline_type = MSO_SHAPE.RECTANGLE if is_sequence_fragment else MSO_SHAPE.ROUNDED_RECTANGLE
         outline = slide.shapes.add_shape(outline_type, left, top, width, height)
         outline.name = self._shape_name(item)
+        if not is_sequence_fragment and len(outline.adjustments):
+            outline.adjustments[0] = 0.06
         outline.fill.background()
         self._apply_line(
             outline.line,
@@ -509,32 +511,48 @@ class PythonPptxRenderer:
         label_shape = None
         if item.label and points:
             raw_label_point = item.metadata.get("label_point")
-            midpoint = (
-                Point(float(raw_label_point[0]), float(raw_label_point[1]))
-                if isinstance(raw_label_point, (list, tuple)) and len(raw_label_point) == 2
-                else self._path_midpoint(points)
-            )
+            midpoint, label_segment = self._path_midpoint_segment(points)
+            if isinstance(raw_label_point, (list, tuple)) and len(raw_label_point) == 2:
+                midpoint = Point(float(raw_label_point[0]), float(raw_label_point[1]))
             center_x, center_y = transform.point(midpoint)
-            label_width = Inches(
-                self._connector_label_width(
-                    item.label,
-                    item.style,
-                    font_scale=transform.font_scale,
-                )
+            label_width_inches = self._connector_label_width(
+                item.label,
+                item.style,
+                font_scale=transform.font_scale,
             )
+            label_width = Inches(label_width_inches)
             label_height = Inches(0.36)
             label_top = center_y - Inches(0.18)
-            label_above = item.metadata.get("label_placement") == "above"
-            if label_above:
+            label_left = center_x - label_width // 2
+            placement = str(item.metadata.get("label_placement", "auto"))
+            segment_start, segment_end = label_segment
+            segment_horizontal = abs(segment_end.x - segment_start.x) >= abs(
+                segment_end.y - segment_start.y
+            )
+            segment_length_inches = (
+                hypot(
+                    segment_end.x - segment_start.x,
+                    segment_end.y - segment_start.y,
+                )
+                * transform.scale
+            )
+            detached = placement == "above" or (
+                placement == "auto"
+                and segment_length_inches < label_width_inches + 0.28
+                and (len(points) == 2 or segment_horizontal)
+            )
+            if placement == "above" or (detached and segment_horizontal):
                 label_top = center_y - label_height - Inches(0.06)
+            elif detached:
+                label_left = center_x + Inches(0.06)
             label_shape = slide.shapes.add_textbox(
-                center_x - label_width // 2,
+                label_left,
                 label_top,
                 label_width,
                 label_height,
             )
             label_shape.name = f"{self._shape_name(item)}:label"
-            if label_above:
+            if detached and item.style.label_fill is None:
                 label_shape.fill.background()
             else:
                 self._apply_fill(
@@ -853,23 +871,30 @@ class PythonPptxRenderer:
 
     @staticmethod
     def _path_midpoint(points: list[Point]) -> Point:
+        return PythonPptxRenderer._path_midpoint_segment(points)[0]
+
+    @staticmethod
+    def _path_midpoint_segment(points: list[Point]) -> tuple[Point, tuple[Point, Point]]:
         if len(points) == 1:
-            return points[0]
+            return points[0], (points[0], points[0])
         lengths = [hypot(end.x - start.x, end.y - start.y) for start, end in pairwise(points)]
         total = sum(lengths)
         if total == 0:
-            return points[0]
+            return points[0], (points[0], points[-1])
         target = total / 2
         traversed = 0.0
         for (start, end), length in zip(pairwise(points), lengths, strict=True):
             if traversed + length >= target:
                 ratio = (target - traversed) / length if length else 0
-                return Point(
-                    start.x + (end.x - start.x) * ratio,
-                    start.y + (end.y - start.y) * ratio,
+                return (
+                    Point(
+                        start.x + (end.x - start.x) * ratio,
+                        start.y + (end.y - start.y) * ratio,
+                    ),
+                    (start, end),
                 )
             traversed += length
-        return points[-1]
+        return points[-1], (points[-2], points[-1])
 
     @staticmethod
     def _shape_name(item: SceneElement) -> str:

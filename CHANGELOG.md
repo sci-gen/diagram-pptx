@@ -56,6 +56,9 @@ No unreleased changes.
   connectors.
 - Increased standard arrowheads to a visible medium size and compacted edge
   label backgrounds so they do not hide most of short connectors.
+- Moved labels off short connector segments automatically so return paths and
+  arrowheads remain visible.
+- Reduced the default corner radius of dashed visual containers.
 - Corrected Native Sequence return-message dashes and label placement, Class
   association arrowheads, and State start/end pseudo-state rendering.
 
