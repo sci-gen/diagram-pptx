@@ -85,7 +85,7 @@ diagram.save("diagram.png", dpi=300)
 - [Mermaid compatibility](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mermaid-compatibility.md) · [日本語](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mermaid-compatibility.ja.md)
 - [Architecture and extension contracts](https://github.com/sci-gen/diagram-pptx/blob/main/docs/architecture.md)
 - [MCP and Codex integration](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mcp-integration.md)
-- [Examples](https://github.com/sci-gen/diagram-pptx/tree/main/examples)
+- [Examples](https://github.com/sci-gen/diagram-pptx/blob/main/examples/README.md) · [日本語](https://github.com/sci-gen/diagram-pptx/blob/main/examples/README.ja.md)
 - [Contributing](https://github.com/sci-gen/diagram-pptx/blob/main/CONTRIBUTING.md)
 - [Changelog](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
