@@ -138,6 +138,8 @@ def import_mermaid_svg(svg: str | bytes, *, kind: str) -> DrawingScene:
     _snap_connector_ends(scene)
     _improve_sequence_self_messages(scene)
     _improve_radar_typography(scene)
+    _improve_quadrant_chart(scene)
+    _improve_sankey_typography(scene)
     scene.recompute_extents()
     return scene
 
@@ -229,6 +231,143 @@ def _scale_box_around(box: Box, center: Point, scale: float) -> Box:
         box.width * scale,
         box.height * scale,
     )
+
+
+def _improve_quadrant_chart(scene: DrawingScene) -> None:
+    """Create room for readable labels around a compact quadrant plot."""
+
+    if scene.kind != "quadrant":
+        return
+    quadrants = [
+        item
+        for item in scene.elements
+        if isinstance(item, SceneShape) and "quadrant" in item.classes
+    ]
+    if not quadrants:
+        return
+    left = min(item.box.x for item in quadrants)
+    top = min(item.box.y for item in quadrants)
+    right = max(item.box.x + item.box.width for item in quadrants)
+    bottom = max(item.box.y + item.box.height for item in quadrants)
+    center = Point((left + right) / 2, (top + bottom) / 2)
+    plot_scale = 0.86
+    new_left = center.x + (left - center.x) * plot_scale
+    new_top = center.y + (top - center.y) * plot_scale
+    new_bottom = center.y + (bottom - center.y) * plot_scale
+    short_side = min(scene.width, scene.height)
+    point_font = _diagram_relative_font(scene, 0.045, minimum=18.0, maximum=24.0)
+    axis_font = _diagram_relative_font(scene, 0.04, minimum=17.0, maximum=22.0)
+    title_font = _diagram_relative_font(scene, 0.05, minimum=20.0, maximum=26.0)
+
+    for item in scene.elements:
+        if isinstance(item, SceneShape) and "quadrant" in item.classes:
+            item.box = _scale_box_around(item.box, center, plot_scale)
+        elif isinstance(item, SceneConnector) and "border" in item.classes:
+            item.points = [_scale_point_around(point, center, plot_scale) for point in item.points]
+        elif isinstance(item, SceneShape) and "data-point" in item.classes:
+            point_center = _scale_point_around(item.box.center, center, plot_scale)
+            diameter = max(11.0, min(14.0, short_side * 0.025))
+            item.box = Box(
+                point_center.x - diameter / 2,
+                point_center.y - diameter / 2,
+                diameter,
+                diameter,
+            )
+        elif isinstance(item, SceneText) and "data-point" in item.classes:
+            label_center = _scale_point_around(item.box.center, center, plot_scale)
+            width = _estimated_text_width(item.text, point_font)
+            height = point_font * 1.2
+            item.box = Box(
+                label_center.x - width / 2,
+                label_center.y - height / 2 + point_font * 0.18,
+                width,
+                height,
+            )
+            item.style.font_size = point_font
+        elif isinstance(item, SceneText) and "labels" in item.classes:
+            label_center = _scale_point_around(item.box.center, center, plot_scale)
+            width = _estimated_text_width(item.text, axis_font)
+            height = axis_font * 1.2
+            if item.rotation:
+                target_center = Point(new_left - axis_font * 0.8, label_center.y)
+            else:
+                target_center = Point(label_center.x, new_bottom + axis_font * 0.85)
+            item.box = Box(
+                target_center.x - width / 2,
+                target_center.y - height / 2,
+                width,
+                height,
+            )
+            item.style.font_size = axis_font
+        elif isinstance(item, SceneText) and "title" in item.classes:
+            width = _estimated_text_width(item.text, title_font)
+            height = title_font * 1.2
+            target_center = Point(center.x, new_top - title_font * 0.8)
+            item.box = Box(
+                target_center.x - width / 2,
+                target_center.y - height / 2,
+                width,
+                height,
+            )
+            item.style.font_size = title_font
+
+
+def _improve_sankey_typography(scene: DrawingScene) -> None:
+    """Size Sankey node labels from the diagram and stack name/value pairs."""
+
+    if scene.kind != "sankey":
+        return
+    nodes = [
+        item for item in scene.elements if isinstance(item, SceneShape) and "node" in item.classes
+    ]
+    labels = [
+        item
+        for item in scene.elements
+        if isinstance(item, SceneText) and "node-labels" in item.classes
+    ]
+    if not nodes or not labels:
+        return
+    target_font = _diagram_relative_font(scene, 0.055, minimum=18.0, maximum=24.0)
+    remaining = list(nodes)
+    for item in labels:
+        node = min(
+            remaining or nodes,
+            key=lambda candidate: (
+                abs(candidate.box.center.y - item.box.center.y),
+                abs(candidate.box.center.x - item.box.center.x),
+            ),
+        )
+        if node in remaining:
+            remaining.remove(node)
+        match = re.fullmatch(r"\s*(.+?)\s+([-+]?\d+(?:\.\d+)?)\s*", item.text)
+        if match:
+            name, value = match.groups()
+            item.text = f"{name}\n{value}"
+        width = max(_estimated_text_width(line, target_font) for line in item.text.splitlines())
+        height = target_font * 1.2 * max(1, len(item.text.splitlines()))
+        if item.align == "right":
+            left = node.box.x - 6.0 - width
+        else:
+            left = node.box.x + node.box.width + 6.0
+        item.box = Box(
+            left,
+            node.box.center.y - height / 2,
+            width,
+            height,
+        )
+        item.style.font_size = target_font
+
+
+def _diagram_relative_font(
+    scene: DrawingScene,
+    ratio: float,
+    *,
+    minimum: float,
+    maximum: float,
+) -> float:
+    """Return a font size proportional to the diagram's logical short side."""
+
+    return max(minimum, min(maximum, min(scene.width, scene.height) * ratio))
 
 
 def _walk(

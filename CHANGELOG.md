@@ -50,6 +50,10 @@ Versioning.
   AutoShape instead of overlapping standalone text boxes.
 - Official Radar output now uses a smaller plot radius with larger axis,
   legend, and title typography.
+- Official Quadrant output now compacts the plot area and sizes point, axis,
+  and chart labels relative to the diagram's short side.
+- Official Sankey output now stacks node names and values on separate lines
+  and scales their typography relative to the complete diagram.
 
 ## [0.1.0a1] - 2026-07-26
 

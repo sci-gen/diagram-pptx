@@ -190,6 +190,59 @@ def test_mermaid_svg_enlarges_radar_typography_for_slide_readability() -> None:
     assert labels["Product comparison"].box.center.x == pytest.approx(labels["Speed"].box.center.x)
 
 
+def test_mermaid_svg_compacts_quadrant_plot_and_enlarges_labels() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500">
+  <rect class="quadrant" x="50" y="50" width="200" height="200"/>
+  <rect class="quadrant" x="250" y="50" width="200" height="200"/>
+  <rect class="quadrant" x="50" y="250" width="200" height="200"/>
+  <rect class="quadrant" x="250" y="250" width="200" height="200"/>
+  <line class="border" x1="50" y1="50" x2="450" y2="50"/>
+  <circle class="data-point" cx="150" cy="150" r="5"/>
+  <text class="data-point" x="150" y="170"
+        text-anchor="middle" font-size="12">Automate</text>
+  <text class="labels" x="150" y="480"
+        text-anchor="middle" font-size="16">Low effort</text>
+  <text class="title" x="250" y="25"
+        text-anchor="middle" font-size="20">Portfolio</text>
+</svg>
+""",
+        kind="quadrant",
+    )
+
+    quadrants = [
+        item
+        for item in scene.elements
+        if isinstance(item, SceneShape) and "quadrant" in item.classes
+    ]
+    labels = {item.text: item for item in scene.elements if isinstance(item, SceneText)}
+    border = next(item for item in scene.elements if isinstance(item, SceneConnector))
+    assert sum(item.box.width for item in quadrants[:2]) == pytest.approx(344)
+    assert border.points[0].x == pytest.approx(min(item.box.x for item in quadrants))
+    assert labels["Automate"].style.font_size == pytest.approx(22.5)
+    assert labels["Low effort"].style.font_size == 20
+    assert labels["Portfolio"].style.font_size == 25
+
+
+def test_mermaid_svg_stacks_and_enlarges_sankey_name_value_labels() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400">
+  <rect class="node" x="20" y="20" width="10" height="300"/>
+  <text class="node-labels" x="36" y="170"
+        font-size="14">Visitors 100</text>
+</svg>
+""",
+        kind="sankey",
+    )
+
+    label = next(item for item in scene.elements if isinstance(item, SceneText))
+    assert label.text == "Visitors\n100"
+    assert label.style.font_size == 22
+    assert label.box.height == pytest.approx(52.8)
+
+
 def test_mermaid_svg_composes_nested_transforms_and_nested_svg_viewbox() -> None:
     scene = import_mermaid_svg(
         """\
