@@ -106,6 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="merge",
     )
     render.add_argument(
+        "--label-background",
+        help="connector/message-label fill (CSS color, theme slot, or transparent)",
+    )
+    render.add_argument(
         "--group",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -148,6 +152,7 @@ def render_file(
     style: str = "native",
     theme: DiagramTheme | None = None,
     colors: ColorMapOptions | ColorMapName | None = None,
+    label_background: str | None = None,
     source_style: str = "merge",
     group: bool = True,
     mmdc_path: str | None = None,
@@ -196,6 +201,7 @@ def render_file(
         style=style,
         theme=theme,
         colors=colors,
+        label_background=label_background,
         source_style=source_style,  # type: ignore[arg-type]
         group=group,
         mmdc_path=mmdc_path,
@@ -323,6 +329,7 @@ def main(argv: list[str] | None = None) -> int:
                 style=args.style,
                 theme=theme,
                 colors=colors,  # type: ignore[arg-type]
+                label_background=args.label_background,
                 source_style=args.source_style,
                 group=args.group,
                 mmdc_path=args.mmdc,

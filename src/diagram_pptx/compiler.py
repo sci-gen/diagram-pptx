@@ -183,6 +183,7 @@ def build_scene(
     style: StylePreset = "native",
     theme: DiagramTheme | Mapping[str, Any] | None = None,
     colors: ColorMapStyle | ColorMapOptions | ColorMapName | None = None,
+    label_background: str | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
     mmdc_path: str | None = None,
@@ -267,7 +268,13 @@ def build_scene(
 
     resolved_theme = DEFAULT_THEME.merged(style_preset(style)).merged(theme)
     resolver = StyleResolver(resolved_theme, source_style=source_style)
-    _resolve_scene_styles(scene, resolver, style_overrides or {}, colormap_style)
+    _resolve_scene_styles(
+        scene,
+        resolver,
+        style_overrides or {},
+        colormap_style,
+        label_background=label_background,
+    )
     return SceneResult(
         backend_used=backend_used.value,
         diagnostics=diagnostics,
@@ -287,6 +294,7 @@ def compile_diagram(
     style: StylePreset = "native",
     theme: DiagramTheme | Mapping[str, Any] | None = None,
     colors: ColorMapStyle | ColorMapOptions | ColorMapName | None = None,
+    label_background: str | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
     group: bool = True,
@@ -314,6 +322,10 @@ def compile_diagram(
         colors: Continuous color-map settings. Pass a :class:`ColorMapStyle`,
             a map name, or a mapping such as
             ``{"name": "viridis", "primary": 0.8, "secondary": 0.2}``.
+        label_background: Optional global connector/message-label background.
+            Accepts RGB/RGBA, CSS colors, palette tokens, PowerPoint theme
+            slots, or ``"transparent"``. Per-element overrides and a
+            color-map ``label_fill`` channel take precedence.
         source_style: Precedence policy for Mermaid-authored styles.
         style_overrides: Final element styles keyed by semantic element ID.
         group: Put the complete diagram in one editable PowerPoint group.
@@ -343,6 +355,7 @@ def compile_diagram(
         style=style,
         theme=theme,
         colors=colors,
+        label_background=label_background,
         source_style=source_style,
         style_overrides=style_overrides,
         mmdc_path=mmdc_path,
@@ -383,6 +396,7 @@ def render_mermaid(
     style: StylePreset = "native",
     theme: DiagramTheme | Mapping[str, Any] | None = None,
     colors: ColorMapStyle | ColorMapOptions | ColorMapName | None = None,
+    label_background: str | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
     group: bool = True,
@@ -408,6 +422,8 @@ def render_mermaid(
         style: ``native`` or Mermaid-like ``official`` visual preset.
         theme: Theme object or JSON-like theme mapping.
         colors: Color-map name, :class:`ColorMapStyle`, or JSON-like mapping.
+        label_background: Optional background behind connector and message
+            labels. Use an explicit slide/canvas color or ``"transparent"``.
         source_style: Mermaid style precedence policy.
         style_overrides: Element styles keyed by semantic ID.
         group: Group all generated shapes as one editable object.
@@ -467,6 +483,7 @@ def render_mermaid(
                 resolver,
                 style_overrides or {},
                 colormap_style,
+                label_background=label_background,
             )
             native_result = (renderer or PythonPptxRenderer()).render(
                 scene,
@@ -494,6 +511,7 @@ def render_mermaid(
             style=style,
             theme=theme,
             colors=colormap_style,
+            label_background=label_background,
             source_style=source_style,
             style_overrides=style_overrides,
             group=group,
@@ -511,6 +529,7 @@ def render_mermaid(
         style=style,
         theme=theme,
         colors=colormap_style,
+        label_background=label_background,
         source_style=source_style,
         style_overrides=style_overrides,
         group=group,
@@ -526,6 +545,8 @@ def _resolve_scene_styles(
     resolver: StyleResolver,
     overrides: Mapping[str, ElementStyle | Mapping[str, Any]],
     colormap: ColorMapStyle | None = None,
+    *,
+    label_background: str | None = None,
 ) -> None:
     for element in scene.elements:
         if isinstance(element, SceneConnector):
@@ -540,13 +561,27 @@ def _resolve_scene_styles(
             continue
         base = resolver.theme.roles.get(base_role, ElementStyle())
         exact = resolver.theme.roles.get(element.role)
+        global_override = (
+            ElementStyle(label_fill=label_background)
+            if label_background is not None
+            and (
+                isinstance(element, SceneConnector)
+                and bool(element.label)
+                or isinstance(element, SceneText)
+                and element.role == "edge.label"
+            )
+            else ElementStyle()
+        )
+        element_override = global_override.merged(
+            ElementStyle.from_dict(overrides.get(element.semantic_id))
+        )
         element.style = resolver.resolve(
             element_id=element.semantic_id,
             role=element.role,
             classes=element.classes,
             source=element.style,
             default=base.merged(exact),
-            override=overrides.get(element.semantic_id),
+            override=element_override,
         )
         if colormap is not None:
             _apply_colormap_style(element, colormap)

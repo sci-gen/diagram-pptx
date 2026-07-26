@@ -61,6 +61,7 @@ def save_diagram(
     width_px: int | None = None,
     height_px: int | None = None,
     background: str | None = None,
+    label_background: str | None = "#FFFFFF",
     quality: int = 95,
     max_pixels: int = 100_000_000,
     backend: CompileBackend | BackendName = "native",
@@ -79,6 +80,8 @@ def save_diagram(
     SVG remains vector output, so ``dpi`` only affects PNG and JPEG. Explicit
     ``width_px`` or ``height_px`` override DPI-derived raster dimensions while
     preserving the aspect ratio when only one dimension is supplied.
+    ``label_background`` controls the fill behind connector and message labels;
+    pass the same value as ``background`` to make labels blend into the canvas.
     """
 
     target = Path(path)
@@ -89,6 +92,7 @@ def save_diagram(
         style=style,
         theme=theme,
         colors=colors,
+        label_background=label_background,
         source_style=source_style,
         style_overrides=style_overrides,
         mmdc_path=mmdc_path,
@@ -134,11 +138,12 @@ def to_svg(
     width_px: int | None = None,
     height_px: int | None = None,
     background: str | None = None,
+    label_background: str | None = "#FFFFFF",
     **compile_options: Any,
 ) -> str:
     """Return a self-contained SVG string without writing a file."""
 
-    result = build_scene(diagram, **compile_options)
+    result = build_scene(diagram, label_background=label_background, **compile_options)
     return (
         SvgRenderer()
         .render(
@@ -158,12 +163,13 @@ def to_png(
     width_px: int | None = None,
     height_px: int | None = None,
     background: str | None = None,
+    label_background: str | None = "#FFFFFF",
     max_pixels: int = 100_000_000,
     **compile_options: Any,
 ) -> bytes:
     """Return PNG bytes; install ``diagram-pptx[image]`` first."""
 
-    result = build_scene(diagram, **compile_options)
+    result = build_scene(diagram, label_background=label_background, **compile_options)
     return _raster_bytes(
         result,
         output_format="png",
@@ -183,13 +189,14 @@ def to_jpeg(
     width_px: int | None = None,
     height_px: int | None = None,
     background: str = "#FFFFFF",
+    label_background: str | None = "#FFFFFF",
     quality: int = 95,
     max_pixels: int = 100_000_000,
     **compile_options: Any,
 ) -> bytes:
     """Return JPEG bytes with transparency flattened onto ``background``."""
 
-    result = build_scene(diagram, **compile_options)
+    result = build_scene(diagram, label_background=label_background, **compile_options)
     return _raster_bytes(
         result,
         output_format="jpeg",

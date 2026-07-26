@@ -217,6 +217,7 @@ def _build_hero(path: Path) -> None:
         png = document.to_png(
             width_px=900,
             background="transparent",
+            label_background="#F8FAFC",
             style="official",
             theme=_hero_theme(palette),
         )

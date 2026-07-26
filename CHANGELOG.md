@@ -14,6 +14,8 @@ Versioning.
   the `image` extra.
 - The `all` aggregate extra for every optional runtime feature.
 - JSON-safe `SceneResult` and `ExportResult` operation summaries.
+- A shared `label_background` option for connector and message labels in
+  PowerPoint, SVG, PNG, JPEG, and the CLI.
 
 ### Changed
 

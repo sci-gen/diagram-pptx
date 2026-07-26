@@ -129,6 +129,22 @@ def test_short_connector_label_moves_above_the_line_without_hiding_the_arrow() -
     assert '<a:tailEnd type="triangle" w="med" len="med"/>' in line._element.xml
 
 
+def test_explicit_label_background_applies_to_detached_powerpoint_labels() -> None:
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = render_mermaid(
+        "flowchart LR\nA[Start] -->|complete| B[Done]\n",
+        slide=slide,
+        bounds=(0.7, 0.7, 3.0, 2.0),
+        label_background="#243447",
+        group=False,
+    )
+
+    label = result.edge_label_shapes[0]
+    assert label.fill.type == MSO_FILL_TYPE.SOLID
+    assert str(label.fill.fore_color.rgb) == "243447"
+
+
 def test_bent_vertical_label_stays_on_line_while_short_horizontal_labels_detach() -> None:
     presentation = Presentation()
     slide = presentation.slides.add_slide(presentation.slide_layouts[6])

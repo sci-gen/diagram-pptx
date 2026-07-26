@@ -150,6 +150,36 @@ def test_numeric_colormap_positions_override_node_and_edge_channels() -> None:
     assert connector.style.line == sample_colormap("jet", 0.75)
 
 
+def test_global_label_background_resolves_theme_tokens_and_element_override_wins() -> None:
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = compile_diagram(
+        parse_mermaid("flowchart LR\nA[One] -->|valid| B[Two]"),
+        slide=slide,
+        bounds=(1, 1, 8, 4),
+        theme={"palette": {"canvas": "#243447"}},
+        label_background="canvas",
+        group=False,
+    )
+    connector = next(item for item in result.scene.elements if isinstance(item, SceneConnector))
+
+    assert connector.style.label_fill == "#243447"
+
+    overridden = compile_diagram(
+        parse_mermaid("flowchart LR\nA[One] -->|valid| B[Two]"),
+        slide=presentation.slides.add_slide(presentation.slide_layouts[6]),
+        bounds=(1, 1, 8, 4),
+        label_background="#243447",
+        style_overrides={"edge-0": {"label_fill": "#F3F0E8"}},
+        group=False,
+    )
+    overridden_connector = next(
+        item for item in overridden.scene.elements if isinstance(item, SceneConnector)
+    )
+
+    assert overridden_connector.style.label_fill == "#F3F0E8"
+
+
 def test_primary_secondary_colors_choose_text_contrast_per_node() -> None:
     presentation = Presentation()
     slide = presentation.slides.add_slide(presentation.slide_layouts[6])

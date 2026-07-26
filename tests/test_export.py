@@ -118,6 +118,30 @@ def test_png_explicit_width_preserves_aspect_ratio() -> None:
         assert image.height > 0
 
 
+def test_svg_label_background_matches_a_non_white_canvas() -> None:
+    color = "#243447"
+    default_svg = parse_mermaid(SOURCE).to_svg()
+    default_root = ET.fromstring(default_svg)
+    default_label_group = next(
+        element for element in default_root.iter() if element.get("data-role") == "edge.default"
+    )
+    default_label_box = next(
+        element for element in default_label_group if element.tag.endswith("rect")
+    )
+    svg = parse_mermaid(SOURCE).to_svg(
+        background=color,
+        label_background=color,
+    )
+    root = ET.fromstring(svg)
+    label_group = next(
+        element for element in root.iter() if element.get("data-role") == "edge.default"
+    )
+    label_box = next(element for element in label_group if element.tag.endswith("rect"))
+
+    assert default_label_box.get("fill") == "#FFFFFF"
+    assert label_box.get("fill") == color
+
+
 @pytest.mark.parametrize("suffix", ["jpg", "jpeg"])
 def test_jpeg_aliases_flatten_transparency(tmp_path, suffix) -> None:
     document = parse_mermaid(SOURCE)

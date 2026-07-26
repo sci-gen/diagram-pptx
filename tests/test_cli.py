@@ -9,7 +9,7 @@ from diagram_pptx.cli import main
 def test_cli_renders_a_presentation(tmp_path: Path) -> None:
     source = tmp_path / "diagram.mmd"
     output = tmp_path / "diagram.pptx"
-    source.write_text("flowchart LR\nA[Start] --> B[Finish]", encoding="utf-8")
+    source.write_text("flowchart LR\nA[Start] -->|done| B[Finish]", encoding="utf-8")
 
     status = main(
         [
@@ -26,6 +26,8 @@ def test_cli_renders_a_presentation(tmp_path: Path) -> None:
             "0.82",
             "--secondary",
             "0.20",
+            "--label-background",
+            "#F3F0E8",
         ]
     )
 

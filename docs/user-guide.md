@@ -106,6 +106,33 @@ PNG supports transparent backgrounds. JPEG flattens transparency onto the
 requested background. `width_px` and `height_px` request exact raster
 dimensions, and a pixel limit prevents accidental extremely large exports.
 
+Image exports use white connector/message-label backgrounds by default. They
+can instead use the same fill as a non-white canvas:
+
+```python
+canvas = "#0F172A"
+document.save(
+    "diagram.png",
+    background=canvas,
+    label_background=canvas,
+)
+```
+
+The same option works for editable PowerPoint output:
+
+```python
+render_mermaid(
+    source,
+    slide=slide,
+    label_background="#F3F0E8",
+)
+```
+
+Use `label_background="transparent"` to remove the label box. Theme authors
+can still set `label_fill` per role, class, or ID; an explicit per-element
+override and the color-map `label_fill` channel take precedence over this
+global convenience value.
+
 ## Placement
 
 Render into named regions:
