@@ -9,7 +9,7 @@
 [![CI](https://github.com/sci-gen/diagram-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/sci-gen/diagram-pptx/actions/workflows/ci.yml)
 [![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-3776AB.svg)](https://www.python.org/)
 [![MIT License](https://img.shields.io/badge/license-MIT-2EA44F.svg)](https://github.com/sci-gen/diagram-pptx/blob/main/LICENSE)
-[![Package status](https://img.shields.io/badge/status-alpha-F59E0B.svg)](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
+[![Package status](https://img.shields.io/badge/status-beta-2563EB.svg)](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
 `diagram-pptx`はMermaidを型付きPythonモデルとして解析し、PowerPointの
 AutoShape、コネクター、テキスト、グループとして描画します。同じ図を
@@ -89,7 +89,7 @@ diagram.save("diagram.png", dpi=300)
 - [開発への参加](https://github.com/sci-gen/diagram-pptx/blob/main/CONTRIBUTING.md)
 - [変更履歴](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
-`0.1.0a1`はalpha版です。未対応のMermaid構文を黙って破棄せず、
+`0.1.0b1`はbeta版です。未対応のMermaid構文を黙って破棄せず、
 診断として通知します。対応範囲とbackendの挙動は利用ガイドを参照してください。
 
 ## ライセンス

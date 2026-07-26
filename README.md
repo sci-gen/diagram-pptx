@@ -9,7 +9,7 @@
 [![CI](https://github.com/sci-gen/diagram-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/sci-gen/diagram-pptx/actions/workflows/ci.yml)
 [![Python 3.10–3.13](https://img.shields.io/badge/python-3.10%E2%80%933.13-3776AB.svg)](https://www.python.org/)
 [![MIT License](https://img.shields.io/badge/license-MIT-2EA44F.svg)](https://github.com/sci-gen/diagram-pptx/blob/main/LICENSE)
-[![Package status](https://img.shields.io/badge/status-alpha-F59E0B.svg)](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
+[![Package status](https://img.shields.io/badge/status-beta-2563EB.svg)](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
 `diagram-pptx` parses Mermaid into typed Python models and renders editable
 PowerPoint AutoShapes, connectors, text, and groups. The same diagram can also
@@ -89,7 +89,7 @@ diagram.save("diagram.png", dpi=300)
 - [Contributing](https://github.com/sci-gen/diagram-pptx/blob/main/CONTRIBUTING.md)
 - [Changelog](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
-`0.1.0a1` is an alpha release. Unsupported Mermaid syntax is reported rather
+`0.1.0b1` is a beta release. Unsupported Mermaid syntax is reported rather
 than silently discarded. See the user guide for the support matrix and
 backend behavior.
 

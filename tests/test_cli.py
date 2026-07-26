@@ -1,9 +1,18 @@
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 from pptx import Presentation
 
-from diagram_pptx.cli import main
+import diagram_pptx
+from diagram_pptx.cli import _package_version, main
+
+
+def test_public_versions_match_distribution_metadata() -> None:
+    expected = version("diagram-pptx")
+    assert expected == "0.1.0b1"
+    assert diagram_pptx.__version__ == expected
+    assert _package_version() == expected
 
 
 def test_cli_renders_a_presentation(tmp_path: Path) -> None:
