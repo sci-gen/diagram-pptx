@@ -137,8 +137,9 @@ def test_mermaid_svg_puts_timeline_labels_in_their_shapes() -> None:
     scene = import_mermaid_svg(
         """\
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 100">
-  <rect class="timeline-node eventWrapper" x="10" y="20"
-        width="220" height="50" rx="4"/>
+  <path class="timeline-node eventWrapper"
+        d="M 10 20 H 230 V 70 H 10 Z"
+        fill="#eeeeff" stroke="#6666aa"/>
   <text class="timeline-node eventWrapper" x="120" y="68"
         text-anchor="middle" font-size="16">Public beta</text>
 </svg>
@@ -148,7 +149,22 @@ def test_mermaid_svg_puts_timeline_labels_in_their_shapes() -> None:
 
     event = next(item for item in scene.elements if isinstance(item, SceneShape))
     assert event.text == "Public beta"
+    assert event.shape == "rounded_rectangle"
+    assert event.points == []
     assert not any(isinstance(item, SceneText) for item in scene.elements)
+
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = PythonPptxRenderer().render(
+        scene,
+        slide=slide,
+        bounds=(1, 1, 8, 4),
+        group=False,
+    )
+
+    event_shape = result.element_shapes[event.semantic_id]
+    assert event_shape.text == "Public beta"
+    assert len(result.element_parts[event.semantic_id]) == 1
 
 
 def test_mermaid_svg_samples_elliptical_arc_paths() -> None:

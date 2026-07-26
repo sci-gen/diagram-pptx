@@ -747,6 +747,17 @@ def _coalesce_contained_node_labels(scene: DrawingScene) -> None:
         for item in scene.elements
         if isinstance(item, SceneShape) and not item.classes.isdisjoint(eligible_classes)
     ]
+    if scene.kind == "timeline":
+        # Mermaid 11.16 emits Timeline cards as SVG paths.  A PowerPoint
+        # freeform can own text, but some OOXML consumers position that text
+        # against the path geometry instead of the visual bounding box.  Use a
+        # standard AutoShape for these box-like nodes so their text frame stays
+        # centered when the diagram is grouped or rendered outside PowerPoint.
+        for shape in shapes:
+            if shape.shape == "custom" and "timeline-node" in shape.classes:
+                shape.shape = "rounded_rectangle"
+                shape.points = []
+                shape.metadata["corner_radius_ratio"] = 0.06
     texts = [item for item in scene.elements if isinstance(item, SceneText)]
     consumed: set[int] = set()
     for shape in shapes:
