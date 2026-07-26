@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "diagram-pptx"
-version = "0.1.0a1"
+version = "0.1.0b1"
 description = "Compile Mermaid into editable native PowerPoint diagrams with python-pptx"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,7 +15,7 @@ authors = [
 ]
 keywords = ["powerpoint", "pptx", "mermaid", "diagram", "flowchart"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",

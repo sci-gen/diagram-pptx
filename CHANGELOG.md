@@ -6,6 +6,8 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.1.0b1] - 2026-07-27
+
 ### Added
 
 - Matplotlib-like `save()`, `to_svg()`, `to_png()`, and `to_jpeg()` methods on
@@ -123,5 +125,6 @@ Versioning.
 - Corrected Native Sequence return-message dashes and label placement, Class
   association arrowheads, and State start/end pseudo-state rendering.
 
-[Unreleased]: https://github.com/sci-gen/diagram-pptx/compare/v0.1.0a1...HEAD
+[Unreleased]: https://github.com/sci-gen/diagram-pptx/compare/v0.1.0b1...HEAD
+[0.1.0b1]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0b1
 [0.1.0a1]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0a1
