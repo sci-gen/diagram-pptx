@@ -184,8 +184,8 @@ rendererがscene全体をその領域へ収めます。
 ```python
 from diagram_pptx import FontSize
 
-document.model.nodes["api"].style.font_size = 18          # 18 pt
-document.model.nodes["db"].style.font_size = "24px"       # 96 dpiで18 pt
+document.model.nodes["api"].style.font_size = 18  # 18 pt
+document.model.nodes["db"].style.font_size = "24px"  # 96 dpiで18 pt
 document.model.nodes["queue"].style.font_size = "2.5%sh"  # スライド高の2.5%
 ```
 

@@ -189,8 +189,8 @@ Font sizes are points by default. Explicit units are also available:
 ```python
 from diagram_pptx import FontSize
 
-document.model.nodes["api"].style.font_size = 18          # 18 pt
-document.model.nodes["db"].style.font_size = "24px"       # 18 pt at 96 dpi
+document.model.nodes["api"].style.font_size = 18  # 18 pt
+document.model.nodes["db"].style.font_size = "24px"  # 18 pt at 96 dpi
 document.model.nodes["queue"].style.font_size = "2.5%sh"  # 2.5% of slide height
 ```
 
