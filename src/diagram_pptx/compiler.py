@@ -16,7 +16,7 @@ from .diagnostics import (
 )
 from .layout.native import layout_native
 from .mermaid import parse_mermaid, serialize_mermaid
-from .model import MermaidDocument, SemanticDiagram
+from .model import MermaidDocument, MermaidSourceDiagram, SemanticDiagram
 from .render.python_pptx import PythonPptxRenderer, RenderResult
 from .scene import DrawingScene, SceneConnector, SceneContainer, SceneShape, SceneText
 from .styles import (
@@ -212,7 +212,11 @@ def build_scene(
         else MermaidDocument(source=serialize_mermaid(diagram), model=diagram)
     )
     requested = CompileBackend(backend)
-    if not document.is_fully_modeled and document.model_changed:
+    if (
+        not document.is_fully_modeled
+        and document.model_changed
+        and not isinstance(document.model, MermaidSourceDiagram)
+    ):
         raise PartialModelMutationError(
             "This Mermaid document contains unsupported statements and its partial "
             "semantic model was changed. Compile the unchanged source with the official "
@@ -243,6 +247,13 @@ def build_scene(
             )
 
     if backend_used == CompileBackend.NATIVE:
+        if isinstance(document.model, MermaidSourceDiagram):
+            raise MermaidRuntimeError(
+                f"Mermaid {document.model.kind!r} diagrams currently require the "
+                "Official backend. Install Node.js, run `npm install -g "
+                "@mermaid-js/mermaid-cli@11.16.0`, and use backend='official' "
+                "or backend='auto'."
+            )
         if not document.is_fully_modeled:
             raise MermaidRuntimeError(
                 "The input contains Mermaid syntax that the native backend cannot model. "
@@ -308,8 +319,8 @@ def compile_diagram(
     """Compile a semantic diagram into an existing ``python-pptx`` slide.
 
     Args:
-        diagram: Parsed :class:`MermaidDocument` or one of the five typed
-            semantic diagram models.
+        diagram: Parsed :class:`MermaidDocument`, one of the five typed
+            semantic models, or a lossless Official-only source model.
         slide: Existing ``python-pptx`` slide receiving the native shapes.
         bounds: Exact ``(left, top, width, height)`` in inches.
         position: Named slide-relative region. Supported values are ``full``,

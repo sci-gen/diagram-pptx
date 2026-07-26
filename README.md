@@ -70,7 +70,8 @@ diagram.save("diagram.png", dpi=300)
 
 ## Highlights
 
-- Flowchart, sequence, class, ER, and state diagrams
+- All Mermaid 11.16 syntax families through Official geometry
+- Typed models and Pure Python Native layout for flowchart, sequence, class, ER, and state
 - Mutable typed models with parse/edit/compile workflows
 - Editable native PowerPoint output through `python-pptx`
 - Pure Python Native layout and optional Mermaid CLI Official geometry
@@ -81,6 +82,7 @@ diagram.save("diagram.png", dpi=300)
 ## Documentation
 
 - [User guide](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.md) · [日本語](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.ja.md)
+- [Mermaid compatibility](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mermaid-compatibility.md) · [日本語](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mermaid-compatibility.ja.md)
 - [Architecture and extension contracts](https://github.com/sci-gen/diagram-pptx/blob/main/docs/architecture.md)
 - [MCP and Codex integration](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mcp-integration.md)
 - [Examples](https://github.com/sci-gen/diagram-pptx/tree/main/examples)

@@ -246,17 +246,13 @@ YAML依存は追加していません。
 
 ## Mermaid対応範囲
 
-| 図種 | `0.1.0a1`のNative semantic対応 |
-| --- | --- |
-| Flowchart | direction、主要shape、label付き／連結edge、cycle、self-loop、nested subgraph、`classDef`、`class`、`style`、`linkStyle` |
-| Sequence | participant、actor、message、note、activation、autonumber、`loop`、`alt`、`else`、`opt`、`par`、`critical`、`break` |
-| Class | attribute、method、stereotype、namespace、型付きrelation、label、note、direction |
-| ER | entity attribute、PK/FK/UK、cardinality、relationship label、direction |
-| State | start/end、simple/composite state、transition、note、direction、choice/fork/join |
+Mermaid 11.16の公開30図種と、同梱された実験的Railroadの全31ファミリーを
+認識し、ソースを欠落なく保持します。固定版Official integration suiteでは
+全ファミリーのfixtureを編集可能なPowerPoint図形へ変換します。
+Flowchart、Sequence、Class、ER、StateはTypedモデルとNative layoutにも対応します。
 
-未対応statementを黙って破棄することはありません。
-`MermaidDocument.raw_statements`へ元のstatementを保持し、行・列付きdiagnosticを
-返します。`strict=True`ではparse時に未対応構文を拒否します。
+図種一覧と5つのTypedモデル内のstatement単位の差分は
+[Mermaid互換性matrix](mermaid-compatibility.ja.md)を参照してください。
 
 ## CLI
 
@@ -265,6 +261,7 @@ diagram-pptx render input.mmd output.pptx \
   --backend native --style official --position left
 
 diagram-pptx inspect input.mmd --json
+diagram-pptx support --json
 diagram-pptx doctor
 ```
 

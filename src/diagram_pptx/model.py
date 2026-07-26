@@ -122,6 +122,48 @@ class DiagramModel(Protocol):
     def to_dict(self) -> dict[str, Any]: ...
 
 
+@dataclass(slots=True)
+class MermaidSourceDiagram(SelectableDiagram):
+    """Lossless Mermaid source model for Official-only syntax families.
+
+    This model makes every Mermaid family usable without pretending that a
+    family has a typed Python object model or a Pure Python layout.  The source
+    remains mutable and is compiled verbatim by the Official backend.
+    """
+
+    kind: str
+    source: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def elements(self) -> Iterable[SemanticElement]:
+        return ()
+
+    def validate(self) -> None:
+        if not self.kind:
+            raise DiagramError("Mermaid source diagram kind must not be empty")
+        if not self.source.strip():
+            raise DiagramError("Mermaid source must not be empty")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "kind": self.kind,
+            "model_type": "mermaid-source",
+            "source": self.source,
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> MermaidSourceDiagram:
+        diagram = cls(
+            kind=str(value["kind"]),
+            source=str(value.get("source", "")),
+            metadata=dict(value.get("metadata", {})),
+        )
+        diagram.validate()
+        return diagram
+
+
 def _style(value: Mapping[str, Any] | ElementStyle | None) -> ElementStyle:
     return ElementStyle.from_dict(value)
 
@@ -891,7 +933,12 @@ class StateDiagram(SelectableDiagram):
 
 
 SemanticDiagram = (
-    FlowDiagram | SequenceDiagram | ClassDiagram | EntityRelationshipDiagram | StateDiagram
+    FlowDiagram
+    | SequenceDiagram
+    | ClassDiagram
+    | EntityRelationshipDiagram
+    | StateDiagram
+    | MermaidSourceDiagram
 )
 
 
@@ -903,7 +950,8 @@ def diagram_from_dict(value: Mapping[str, Any]) -> SemanticDiagram:
             family-specific model fields produced by ``to_dict()``.
 
     Returns:
-        One of the five typed semantic diagram roots.
+        A typed semantic root, or a lossless Mermaid source model for a family
+        that currently requires the Official backend.
 
     Raises:
         ValueError: If the schema version or diagram kind is unsupported.
@@ -919,6 +967,12 @@ def diagram_from_dict(value: Mapping[str, Any]) -> SemanticDiagram:
         "er": EntityRelationshipDiagram.from_dict,
         "state": StateDiagram.from_dict,
     }
+    if value.get("model_type") == "mermaid-source":
+        return MermaidSourceDiagram.from_dict(value)
+    from .mermaid_registry import MERMAID_SOURCE_ONLY_KINDS
+
+    if kind in MERMAID_SOURCE_ONLY_KINDS and "source" in value:
+        return MermaidSourceDiagram.from_dict(value)
     try:
         return factories[kind](value)
     except KeyError as exc:
@@ -959,12 +1013,16 @@ class MermaidDocument:
     def modeling_rate(self) -> float:
         """Approximate modeled coverage using semantic items and raw statements."""
 
+        if isinstance(self.model, MermaidSourceDiagram):
+            return 0.0
         modeled = len(list(self.model.elements()))
         total = modeled + len(self.raw_statements)
         return 1.0 if total == 0 else modeled / total
 
     @property
     def required_backend(self) -> str:
+        if isinstance(self.model, MermaidSourceDiagram):
+            return "official"
         return "native-or-official" if self.is_fully_modeled else "official"
 
     def to_dict(self) -> dict[str, Any]:

@@ -253,17 +253,14 @@ themes are supported without a YAML dependency.
 
 ## Mermaid support
 
-| Family | Native semantic coverage in `0.1.0a1` |
-| --- | --- |
-| Flowchart | directions, common shapes, labeled/chained edges, cycles, self-loops, nested subgraphs, `classDef`, `class`, `style`, `linkStyle` |
-| Sequence | participants, actors, messages, notes, activations, autonumber, `loop`, `alt`, `else`, `opt`, `par`, `critical`, `break` |
-| Class | attributes, methods, stereotypes, namespaces, typed relationships, labels, notes, direction |
-| ER | entity attributes, PK/FK/UK, cardinalities, relationship labels, direction |
-| State | start/end, simple/composite states, transitions, notes, direction, choice/fork/join |
+All 30 Mermaid 11.16 public syntax families, plus the bundled experimental
+Railroad family, are recognized and preserved losslessly. The pinned Official
+integration suite renders one fixture for every registered family into
+editable PowerPoint shapes. Flowchart, Sequence, Class, ER, and State also
+have typed models and Native layouts.
 
-Unsupported statements are never silently dropped. They remain in
-`MermaidDocument.raw_statements` with line/column diagnostics. `strict=True`
-rejects unsupported syntax during parsing.
+See the complete [Mermaid compatibility matrix](mermaid-compatibility.md) for
+the family list and statement-level differences within the five typed models.
 
 ## CLI
 
@@ -272,6 +269,7 @@ diagram-pptx render input.mmd output.pptx \
   --backend native --style official --position left
 
 diagram-pptx inspect input.mmd --json
+diagram-pptx support --json
 diagram-pptx doctor
 ```
 

@@ -27,6 +27,12 @@ from .diagnostics import (
 from .export import ExportResult, ImageFormat, save_diagram, to_jpeg, to_png, to_svg
 from .layout.layered import LayeredLayout
 from .mermaid import parse_mermaid, serialize_mermaid
+from .mermaid_registry import (
+    MERMAID_COMPATIBILITY_VERSION,
+    MERMAID_SYNTAX_FAMILIES,
+    MermaidSyntaxFamily,
+    mermaid_support_rows,
+)
 from .model import (
     ClassDiagram,
     ClassNode,
@@ -45,6 +51,7 @@ from .model import (
     FlowGroup,
     FlowNode,
     MermaidDocument,
+    MermaidSourceDiagram,
     NodeShape,
     SequenceDiagram,
     SequenceEvent,
@@ -109,6 +116,10 @@ __all__ = [
     "ImageFormat",
     "LayeredLayout",
     "MermaidDocument",
+    "MermaidSourceDiagram",
+    "MermaidSyntaxFamily",
+    "MERMAID_COMPATIBILITY_VERSION",
+    "MERMAID_SYNTAX_FAMILIES",
     "MermaidParseError",
     "MermaidRuntimeError",
     "NodeShape",
@@ -139,6 +150,7 @@ __all__ = [
     "contrast_text_color",
     "diagram_from_dict",
     "parse_mermaid",
+    "mermaid_support_rows",
     "render_mermaid",
     "resolve_diagram_bounds",
     "sample_colormap",

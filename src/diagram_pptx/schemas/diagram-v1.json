@@ -7,8 +7,17 @@
   "properties": {
     "schema_version": { "const": 1 },
     "kind": {
-      "enum": ["flowchart", "sequence", "class", "er", "state"]
+      "enum": [
+        "flowchart", "swimlanes", "sequence", "class", "state", "er",
+        "journey", "gantt", "pie", "quadrant", "requirement", "gitgraph",
+        "c4", "mindmap", "timeline", "zenuml", "sankey", "xychart",
+        "block", "packet", "kanban", "architecture", "radar",
+        "eventmodeling", "treemap", "venn", "ishikawa", "wardley",
+        "cynefin", "treeview", "railroad"
+      ]
     },
+    "model_type": { "enum": ["mermaid-source"] },
+    "source": { "type": "string" },
     "direction": { "enum": ["LR", "RL", "TB", "BT", "TD"] },
     "nodes": { "type": "array", "items": { "$ref": "#/$defs/element" } },
     "edges": { "type": "array", "items": { "$ref": "#/$defs/relationship" } },

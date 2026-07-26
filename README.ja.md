@@ -70,7 +70,8 @@ diagram.save("diagram.png", dpi=300)
 
 ## 主な機能
 
-- Flowchart、Sequence、Class、ER、Stateの5図種
+- Mermaid 11.16の全syntax familyをOfficial geometryで利用可能
+- Flowchart、Sequence、Class、ER、Stateは型付きモデルとPure Python Native layoutに対応
 - 型付き可変モデルによるparse・edit・compile
 - `python-pptx`による編集可能なPowerPointネイティブ図形
 - Pure PythonのNative layoutと、任意導入のMermaid CLI Official geometry
@@ -81,6 +82,7 @@ diagram.save("diagram.png", dpi=300)
 ## ドキュメント
 
 - [利用ガイド](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.ja.md) · [English](https://github.com/sci-gen/diagram-pptx/blob/main/docs/user-guide.md)
+- [Mermaid互換性](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mermaid-compatibility.ja.md) · [English](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mermaid-compatibility.md)
 - [Architecture・拡張契約（英語）](https://github.com/sci-gen/diagram-pptx/blob/main/docs/architecture.md)
 - [MCP・Codex連携（英語）](https://github.com/sci-gen/diagram-pptx/blob/main/docs/mcp-integration.md)
 - [Examples](https://github.com/sci-gen/diagram-pptx/tree/main/examples)

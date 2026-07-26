@@ -18,6 +18,7 @@ from pptx.util import Inches, Pt
 from .compiler import ColorMapName, ColorMapOptions, compile_diagram
 from .diagnostics import DiagramPptxError
 from .mermaid import parse_mermaid
+from .mermaid_registry import MERMAID_COMPATIBILITY_VERSION, mermaid_support_rows
 from .official import find_mmdc, mmdc_version
 from .styles import DiagramTheme
 
@@ -127,6 +128,9 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="Check optional rendering runtimes")
     doctor.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     doctor.add_argument("--mmdc", help="Path to the Mermaid CLI executable")
+
+    support = subparsers.add_parser("support", help="Show Mermaid syntax compatibility")
+    support.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     return parser
 
 
@@ -287,6 +291,31 @@ def _doctor(*, mmdc_path: str | None, as_json: bool) -> None:
     print(f"pdftoppm: {payload['pdftoppm'] or 'not found'}")
 
 
+def _support(*, as_json: bool) -> None:
+    rows = mermaid_support_rows()
+    payload = {
+        "mermaid_version": MERMAID_COMPATIBILITY_VERSION,
+        "families": rows,
+        "summary": {
+            "registered": len(rows),
+            "official": sum(bool(row["official_backend"]) for row in rows),
+            "typed_model": sum(bool(row["typed_model"]) for row in rows),
+            "native_backend": sum(bool(row["native_backend"]) for row in rows),
+        },
+    }
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    print(f"Mermaid compatibility target: {MERMAID_COMPATIBILITY_VERSION}")
+    print("family          typed  native  official")
+    for row in rows:
+        print(
+            f"{str(row['kind']):<15} "
+            f"{'yes' if row['typed_model'] else 'source':<6} "
+            f"{'yes' if row['native_backend'] else 'no':<7} yes"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -342,6 +371,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "doctor":
             _doctor(mmdc_path=args.mmdc, as_json=args.json)
+            return 0
+        if args.command == "support":
+            _support(as_json=args.json)
             return 0
     except (DiagramPptxError, OSError, ValueError) as exc:
         print(f"diagram-pptx: error: {exc}", file=sys.stderr)

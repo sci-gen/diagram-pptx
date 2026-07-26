@@ -64,6 +64,7 @@ def import_mermaid_svg(svg: str | bytes, *, kind: str) -> DrawingScene:
         raise ValueError(f"Expected SVG root, got {_local(root.tag)!r}")
 
     css = _parse_css(root)
+    paint_servers = _parse_paint_servers(root)
     view_box = _numbers(root.get("viewBox", ""))
     if len(view_box) >= 4:
         min_x, min_y, width, height = view_box[:4]
@@ -88,6 +89,7 @@ def import_mermaid_svg(svg: str | bytes, *, kind: str) -> DrawingScene:
             child,
             scene,
             css=css,
+            paint_servers=paint_servers,
             transform=root_transform,
             inherited_id=None,
             inherited_classes=set(),
@@ -108,6 +110,7 @@ def _walk(
     scene: DrawingScene,
     *,
     css: dict[str, dict[str, str]],
+    paint_servers: dict[str, str],
     transform: _Affine,
     inherited_id: str | None,
     inherited_classes: set[str],
@@ -122,7 +125,7 @@ def _walk(
         classes,
     )
     current_transform = transform.then(_parse_transform(element.get("transform", "")))
-    style = _element_style(element, classes, css)
+    style = _element_style(element, classes, css, paint_servers)
     element_id = f"svg-{counter[0]}"
     counter[0] += 1
     role = _role(classes, tag)
@@ -295,6 +298,7 @@ def _walk(
             child,
             scene,
             css=css,
+            paint_servers=paint_servers,
             transform=current_transform,
             inherited_id=child_id,
             inherited_classes=classes,
@@ -762,7 +766,10 @@ def _parse_css(root: ET.Element) -> dict[str, dict[str, str]]:
 
 
 def _element_style(
-    element: ET.Element, classes: set[str], css: dict[str, dict[str, str]]
+    element: ET.Element,
+    classes: set[str],
+    css: dict[str, dict[str, str]],
+    paint_servers: dict[str, str],
 ) -> ElementStyle:
     declarations: dict[str, str] = {}
     for name in ("fill", "stroke", "color", "stroke-width", "stroke-dasharray", "opacity"):
@@ -788,10 +795,11 @@ def _element_style(
     has_dash = dash_value.lower() not in {"", "none"} and not (
         dash_numbers and all(abs(item) < 1e-9 for item in dash_numbers)
     )
+    current_color = _color_or_none(declarations.get("color"))
     return ElementStyle(
-        fill=_color_or_none(declarations.get("fill")),
-        line=_color_or_none(declarations.get("stroke")),
-        text=_color_or_none(declarations.get("color")),
+        fill=_paint_or_none(declarations.get("fill"), current_color, paint_servers),
+        line=_paint_or_none(declarations.get("stroke"), current_color, paint_servers),
+        text=current_color,
         line_width=line_width,
         dash="dash" if has_dash else None,
         font_family=declarations.get("font-family"),
@@ -814,6 +822,48 @@ def _color_or_none(value: str | None) -> str | None:
         return None
     text = value.strip()
     return text.lower() if text.lower() == "none" else normalize_color(text)
+
+
+def _paint_or_none(
+    value: str | None,
+    current_color: str | None,
+    paint_servers: dict[str, str],
+) -> str | None:
+    if value is None:
+        return None
+    text = re.sub(r"\s*!important\s*$", "", value.strip(), flags=re.IGNORECASE)
+    if text.lower() == "currentcolor":
+        return current_color or "#000000"
+    paint_match = re.fullmatch(r"url\(\s*#([^)]+)\s*\)", text, flags=re.IGNORECASE)
+    if paint_match:
+        return paint_servers.get(paint_match.group(1), current_color)
+    if "nan" in text.lower():
+        return current_color
+    return _color_or_none(text)
+
+
+def _parse_paint_servers(root: ET.Element) -> dict[str, str]:
+    """Approximate SVG gradients with their first usable stop color."""
+
+    result: dict[str, str] = {}
+    for element in root.iter():
+        if _local(element.tag) not in {"linearGradient", "radialGradient"}:
+            continue
+        identifier = element.get("id")
+        if not identifier:
+            continue
+        colors: list[str] = []
+        for stop in element:
+            if _local(stop.tag) != "stop":
+                continue
+            declarations = _parse_declarations(stop.get("style", ""))
+            value = stop.get("stop-color") or declarations.get("stop-color")
+            color = _color_or_none(value)
+            if color and color not in {"none", "#00000000"}:
+                colors.append(color)
+        if colors:
+            result[identifier] = colors[0]
+    return result
 
 
 def _semantic_id(value: str | None, classes: set[str]) -> str | None:

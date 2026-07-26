@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from .diagnostics import Diagnostic, MermaidParseError
 from .importers.mermaid import MermaidFlowchartImporter
+from .mermaid_registry import detect_mermaid_family
 from .model import (
     ClassDiagram,
     ClassNode,
@@ -18,6 +19,7 @@ from .model import (
     ERRelationship,
     FlowDiagram,
     MermaidDocument,
+    MermaidSourceDiagram,
     SequenceDiagram,
     SequenceEvent,
     SequenceParticipant,
@@ -67,11 +69,33 @@ def _split_semicolons(text: str) -> list[str]:
     return parts
 
 
+def _split_frontmatter(source: str) -> tuple[str | None, str]:
+    normalized = source.replace("\r\n", "\n")
+    lines = normalized.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None, source
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            frontmatter = "\n".join(lines[: index + 1])
+            body = "\n".join(lines[index + 1 :])
+            if normalized.endswith("\n"):
+                body += "\n"
+            return frontmatter, body
+    raise MermaidParseError("Unterminated Mermaid frontmatter")
+
+
 def _scan(source: str) -> tuple[list[_Statement], list[str], dict[str, str]]:
     statements: list[_Statement] = []
     directives: list[str] = []
     accessibility: dict[str, str] = {}
-    for line_number, raw in enumerate(source.replace("\r\n", "\n").splitlines(), start=1):
+    lines = source.replace("\r\n", "\n").splitlines()
+    frontmatter, _ = _split_frontmatter(source)
+    scan_start = len(frontmatter.splitlines()) if frontmatter else 0
+    if frontmatter:
+        directives.append(frontmatter)
+    for line_number, raw in enumerate(lines, start=1):
+        if line_number <= scan_start:
+            continue
         stripped = raw.strip()
         if not stripped:
             continue
@@ -133,11 +157,11 @@ def parse_mermaid(source: str, *, strict: bool = False) -> MermaidDocument:
     """Parse Mermaid source into a mutable typed document.
 
     Args:
-        source: Complete Mermaid source for one flowchart, sequence diagram,
-            class diagram, ER diagram, or state diagram.
-        strict: Raise immediately when any statement cannot be modeled.
-            Otherwise unsupported statements are preserved with diagnostics so
-            an unchanged document may still use the Official backend.
+        source: Complete Mermaid source for any registered Mermaid 11.16
+            syntax family.
+        strict: For the five typed families, raise when any statement cannot
+            be modeled. Source-only families are preserved losslessly and
+            validated by Mermaid CLI during Official compilation.
 
     Returns:
         A :class:`MermaidDocument` containing the original source, typed model,
@@ -145,9 +169,9 @@ def parse_mermaid(source: str, *, strict: bool = False) -> MermaidDocument:
 
     Raises:
         TypeError: If ``source`` is not text.
-        MermaidParseError: If the source is empty, has an unsupported diagram
-            header, is malformed, or contains unsupported syntax in strict
-            mode.
+        MermaidParseError: If the source is empty, has an unknown diagram
+            header, is malformed, or a typed family contains unsupported
+            syntax in strict mode.
     """
 
     if not isinstance(source, str):
@@ -155,7 +179,8 @@ def parse_mermaid(source: str, *, strict: bool = False) -> MermaidDocument:
     statements, directives, accessibility = _scan(source)
     if not statements:
         raise MermaidParseError("Mermaid source is empty")
-    header = statements[0].text.strip().lower()
+    header_text = statements[0].text.strip()
+    header = header_text.lower()
     if header.startswith(("flowchart ", "graph ")):
         return _parse_flow(source, statements, directives, accessibility, strict=strict)
     if header == "sequencediagram":
@@ -166,9 +191,47 @@ def parse_mermaid(source: str, *, strict: bool = False) -> MermaidDocument:
         return _parse_er(source, statements, directives, accessibility, strict=strict)
     if header.startswith(("statediagram-v2", "statediagram")):
         return _parse_state(source, statements, directives, accessibility, strict=strict)
+    family = detect_mermaid_family(header_text)
+    if family is not None:
+        model = MermaidSourceDiagram(
+            kind=family.kind,
+            source=source,
+            metadata={
+                "syntax_family": family.title,
+                "documentation": family.documentation,
+                "directives": directives,
+                **accessibility,
+            },
+        )
+        model.validate()
+        return MermaidDocument(
+            source=source,
+            model=model,
+            diagnostics=[
+                Diagnostic(
+                    code="official-backend-required",
+                    severity="info",
+                    backend="official",
+                    message=(
+                        f"{family.title} source is preserved losslessly and requires "
+                        "the Official Mermaid backend; a typed Python model and Native "
+                        "layout are not available yet."
+                    ),
+                    line=statements[0].line,
+                    column=statements[0].column,
+                    statement=statements[0].text,
+                )
+            ],
+            raw_statements=[item.text for item in statements[1:]],
+            is_fully_modeled=False,
+            metadata={
+                "syntax_family": family.title,
+                "documentation": family.documentation,
+            },
+        )
     raise MermaidParseError(
-        "Supported Mermaid families are flowchart, sequenceDiagram, "
-        "classDiagram, erDiagram, and stateDiagram-v2"
+        "Unknown Mermaid diagram declaration. See the Mermaid 11.16 compatibility "
+        "matrix for accepted syntax families."
     )
 
 
@@ -183,7 +246,8 @@ def _parse_flow(
     diagnostics: list[Diagnostic] = []
     raw: list[str] = []
     try:
-        model = MermaidFlowchartImporter().parse(source, tolerant=True)
+        _, parse_source = _split_frontmatter(source)
+        model = MermaidFlowchartImporter().parse(parse_source, tolerant=True)
     except ValueError as exc:
         raise MermaidParseError(str(exc)) from exc
     unsupported = model.metadata.pop("unsupported_statements", [])
@@ -787,6 +851,7 @@ def serialize_mermaid(model: object) -> str:
     """
 
     serializers: list[tuple[type[object], Callable[[object], str]]] = [
+        (MermaidSourceDiagram, lambda item: item.source),
         (FlowDiagram, lambda item: _serialize_flow(item)),
         (SequenceDiagram, lambda item: _serialize_sequence(item)),
         (ClassDiagram, lambda item: _serialize_class(item)),

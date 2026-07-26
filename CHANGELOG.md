@@ -17,6 +17,12 @@ Versioning.
 - A shared `label_background` option for connector and message labels in
   PowerPoint, SVG, PNG, JPEG, and the CLI.
 - A bilingual user guide and a generated quick-start diagram preview.
+- A Mermaid 11.16 registry covering all 30 documented syntax families plus
+  the bundled experimental Railroad family.
+- Lossless `MermaidSourceDiagram` passthrough and pinned Official integration
+  fixtures for all 31 registered families.
+- A machine-readable `diagram-pptx support --json` compatibility command and
+  bilingual statement-level compatibility documentation.
 
 ### Changed
 
@@ -26,6 +32,8 @@ Versioning.
   `backend="auto"` records an informational Native-fallback diagnostic.
 - Opaque custom label backgrounds automatically select light or dark text
   unless an explicit element or color-map text color is supplied.
+- Official SVG import now resolves `currentColor`, approximates gradients with
+  a usable stop color, and sanitizes invalid generated paint values.
 
 ## [0.1.0a1] - 2026-07-26
 

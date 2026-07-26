@@ -35,13 +35,18 @@ preinstalled `python-pptx` is reused by normal package installation.
 
 ## Semantic roots
 
-The five roots intentionally remain distinct:
+The five typed roots intentionally remain distinct:
 
 - `FlowDiagram`: nodes, edges, nested visual groups
 - `SequenceDiagram`: participants and ordered events/fragments
 - `ClassDiagram`: classes, compartments, notes, typed relationships
 - `EntityRelationshipDiagram`: entities, attributes, keys, cardinalities
 - `StateDiagram`: states, composites, pseudostates, transitions
+
+`MermaidSourceDiagram` is a separate lossless root for every other Mermaid
+11.16 family. It stores the complete mutable source and explicitly requires
+the Official backend; it does not pretend to provide an ORM-like semantic
+model or a Native layout.
 
 Forcing these into a single graph type would erase useful constraints. Shared
 behavior lives in style primitives, selection helpers, serialization, and the

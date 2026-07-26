@@ -92,3 +92,24 @@ def test_cli_doctor_reports_image_export(capsys) -> None:
     assert payload["image_export"]["svg"] is True
     assert payload["image_export"]["png"] is True
     assert payload["image_export"]["jpeg"] is True
+
+
+def test_cli_support_reports_all_registered_mermaid_families(capsys) -> None:
+    status = main(["support", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert status == 0
+    assert payload["mermaid_version"] == "11.16.0"
+    assert payload["summary"] == {
+        "registered": 31,
+        "official": 31,
+        "typed_model": 5,
+        "native_backend": 5,
+    }
+    assert {row["kind"] for row in payload["families"]} >= {
+        "flowchart",
+        "sequence",
+        "swimlanes",
+        "eventmodeling",
+        "railroad",
+    }

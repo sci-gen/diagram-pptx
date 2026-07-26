@@ -4,7 +4,7 @@ from zipfile import ZipFile
 
 import pytest
 from pptx import Presentation
-from test_mermaid_frontend import SAMPLES
+from test_mermaid_frontend import SAMPLES, SOURCE_ONLY_SAMPLES
 
 from diagram_pptx import compile_diagram, parse_mermaid
 from diagram_pptx.importers import import_mermaid_svg
@@ -267,3 +267,30 @@ def test_pinned_official_backend_compiles_all_families(
     if kind == "state":
         assert xml.count("<p:grpSp>") >= 2
     assert "<a:blip" not in xml
+
+
+@pytest.mark.official
+@pytest.mark.parametrize("kind", list(SOURCE_ONLY_SAMPLES))
+def test_pinned_official_backend_accepts_every_registered_source_family(
+    kind: str,
+) -> None:
+    executable = shutil.which("mmdc")
+    if executable is None:
+        pytest.skip("mmdc is not installed")
+
+    document = parse_mermaid(SOURCE_ONLY_SAMPLES[kind], strict=True)
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    result = compile_diagram(
+        document,
+        slide=slide,
+        bounds=(0.7, 0.7, 11.9, 6.1),
+        backend="official",
+        strict=True,
+        timeout=60,
+    )
+
+    assert result.backend_used == "official"
+    assert result.scene.kind == kind
+    assert result.scene.elements
+    assert len(slide.shapes) == 1
