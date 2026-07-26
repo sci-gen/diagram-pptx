@@ -70,7 +70,7 @@
       "backend_used": "official",
       "source": "sources/journey.mmd",
       "image": "images/journey.png",
-      "editable_shape_count": 49
+      "editable_shape_count": 37
     },
     {
       "slide": 8,
@@ -150,7 +150,7 @@
       "backend_used": "official",
       "source": "sources/timeline.mmd",
       "image": "images/timeline.png",
-      "editable_shape_count": 32
+      "editable_shape_count": 23
     },
     {
       "slide": 16,

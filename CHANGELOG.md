@@ -54,6 +54,10 @@ Versioning.
   and chart labels relative to the diagram's short side.
 - Official Sankey output now stacks node names and values on separate lines
   and scales their typography relative to the complete diagram.
+- Official User Journey section and task labels now live directly in their
+  editable AutoShapes, with duplicate SVG fallback labels removed.
+- Official Timeline year and event labels now live directly in their
+  editable AutoShapes and remain vertically centered after scaling.
 
 ## [0.1.0a1] - 2026-07-26
 

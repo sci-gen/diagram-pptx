@@ -114,6 +114,43 @@ def test_mermaid_svg_puts_kanban_card_text_in_the_card_shape() -> None:
     assert not any(isinstance(item, SceneText) for item in scene.elements)
 
 
+def test_mermaid_svg_deduplicates_journey_labels_into_their_shapes() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 80">
+  <rect class="journey-section" x="10" y="10" width="220" height="50" rx="4"/>
+  <text x="120" y="40" text-anchor="middle">Discover</text>
+  <text class="journey-section" x="120" y="40"
+        text-anchor="middle" font-size="18">Discover</text>
+</svg>
+""",
+        kind="journey",
+    )
+
+    section = next(item for item in scene.elements if isinstance(item, SceneShape))
+    assert section.text == "Discover"
+    assert section.style.font_size == 18
+    assert not any(isinstance(item, SceneText) for item in scene.elements)
+
+
+def test_mermaid_svg_puts_timeline_labels_in_their_shapes() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 100">
+  <rect class="timeline-node eventWrapper" x="10" y="20"
+        width="220" height="50" rx="4"/>
+  <text class="timeline-node eventWrapper" x="120" y="68"
+        text-anchor="middle" font-size="16">Public beta</text>
+</svg>
+""",
+        kind="timeline",
+    )
+
+    event = next(item for item in scene.elements if isinstance(item, SceneShape))
+    assert event.text == "Public beta"
+    assert not any(isinstance(item, SceneText) for item in scene.elements)
+
+
 def test_mermaid_svg_samples_elliptical_arc_paths() -> None:
     scene = import_mermaid_svg(
         """\

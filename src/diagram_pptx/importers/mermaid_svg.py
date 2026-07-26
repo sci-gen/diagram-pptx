@@ -690,13 +690,16 @@ def _walk(
 def _coalesce_node_labels(scene: DrawingScene) -> None:
     """Put simple node labels in their native PowerPoint shape.
 
-    Mermaid SVG represents geometry and labels separately.  For flow, state,
-    and Kanban nodes a single label can safely become the shape's own text
-    frame, which is more editable and prevents a redundant textbox from
-    drifting during group scaling. Structured diagrams keep their independent
-    compartment text.
+    Mermaid SVG represents geometry and labels separately. For simple Flow,
+    State, Kanban, Journey, and Timeline nodes, a label can safely become the
+    shape's own text frame, which is more editable and prevents a redundant
+    textbox from drifting during group scaling. Structured diagrams keep their
+    independent compartment text.
     """
 
+    if scene.kind in {"journey", "timeline"}:
+        _coalesce_contained_node_labels(scene)
+        return
     if scene.kind not in {"flowchart", "kanban", "state"}:
         return
     shapes_by_id: dict[str, list[SceneShape]] = {}
@@ -724,6 +727,46 @@ def _coalesce_node_labels(scene: DrawingScene) -> None:
         shape.text = text.text
         shape.style = shape.style.merged(text.style)
         consumed.add(id(text))
+    if consumed:
+        scene.elements = [item for item in scene.elements if id(item) not in consumed]
+
+
+def _coalesce_contained_node_labels(scene: DrawingScene) -> None:
+    """Move visually contained Journey/Timeline labels into their AutoShapes."""
+
+    eligible_classes = {
+        "journey": {"journey-section", "task"},
+        "timeline": {"timeline-node"},
+    }[scene.kind]
+    shapes = [
+        item
+        for item in scene.elements
+        if isinstance(item, SceneShape) and not item.classes.isdisjoint(eligible_classes)
+    ]
+    texts = [item for item in scene.elements if isinstance(item, SceneText)]
+    consumed: set[int] = set()
+    for shape in shapes:
+        candidates = [
+            item
+            for item in texts
+            if id(item) not in consumed
+            and shape.box.x <= item.box.center.x <= shape.box.x + shape.box.width
+            and shape.box.y <= item.box.center.y <= shape.box.y + shape.box.height
+        ]
+        if not candidates:
+            continue
+        selected = max(
+            candidates,
+            key=lambda item: (
+                item.style.text is not None
+                and normalize_color(item.style.text) != normalize_color(shape.style.fill or "none"),
+                len(item.classes & shape.classes),
+                -item.box.width * item.box.height,
+            ),
+        )
+        shape.text = selected.text
+        shape.style = shape.style.merged(selected.style)
+        consumed.update(id(item) for item in candidates if item.text == selected.text)
     if consumed:
         scene.elements = [item for item in scene.elements if id(item) not in consumed]
 
