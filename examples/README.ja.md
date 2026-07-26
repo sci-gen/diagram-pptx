@@ -12,10 +12,11 @@ Mermaid公式navigationの30図種に、同梱された実験的Railroadを加�
 PPTX内の図はすべて編集可能なPowerPoint図形で、図全体を1枚の画像として
 貼り付けてはいません。
 
-![Mermaid 11.16全図種gallery](mermaid-syntax/overview.png)
+[![Mermaid 11.16全図種gallery](mermaid-syntax/overview.png)](build_mermaid_syntax_gallery.py)
 
 - **Native**：型付きPythonモデル＋Pure Python layout。Node.js不要
 - **Official → shapes**：Mermaid CLIでgeometryを計算し、編集可能なPowerPoint図形へ変換
+- 全体画像をクリックするとPython生成スクリプトを表示
 - 画像をクリックするとMermaid sourceを表示
 
 | | |

@@ -10,6 +10,8 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any, Literal
 
+from .typography import FontSize, coerce_font_size
+
 SourceStylePolicy = Literal["merge", "preserve", "replace"]
 
 _HEX_RE = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
@@ -295,7 +297,9 @@ class ElementStyle:
 
     Colors accept RGB/RGBA strings, CSS color forms, palette tokens, and
     PowerPoint theme slots such as ``accent1`` or ``text1``. Unset properties
-    remain ``None`` so style layers can be merged predictably.
+    remain ``None`` so style layers can be merged predictably. ``font_size``
+    accepts points by default, ``"16px"``, ``"2.2%sh"``, or a
+    :class:`~diagram_pptx.FontSize`.
     """
 
     fill: str | None = None
@@ -304,17 +308,32 @@ class ElementStyle:
     line_width: float | None = None
     dash: str | None = None
     font_family: str | None = None
-    font_size: float | None = None
+    font_size: FontSize | float | int | str | Mapping[str, Any] | None = None
     bold: bool | None = None
     italic: bool | None = None
     opacity: float | None = None
     label_fill: str | None = None
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "font_size":
+            value = coerce_font_size(value)
+        object.__setattr__(self, name, value)
+
+    def __post_init__(self) -> None:
+        self.font_size = coerce_font_size(self.font_size)
+
+    def set_source_font_size(self, value: float | None) -> None:
+        """Set an internal source-coordinate size that scales with geometry."""
+
+        object.__setattr__(self, "font_size", None if value is None else float(value))
+
     def copy(self) -> ElementStyle:
-        return ElementStyle(**self.to_dict())
+        return self._from_internal_values(
+            {item.name: getattr(self, item.name) for item in fields(ElementStyle)}
+        )
 
     def merged(self, *overrides: ElementStyle | None) -> ElementStyle:
-        values = self.to_dict()
+        values = {item.name: getattr(self, item.name) for item in fields(ElementStyle)}
         for override in overrides:
             if override is None:
                 continue
@@ -325,14 +344,24 @@ class ElementStyle:
                     if getattr(override, item.name) is not None
                 }
             )
-        return ElementStyle(**values)
+        return self._from_internal_values(values)
+
+    @classmethod
+    def _from_internal_values(cls, values: Mapping[str, Any]) -> ElementStyle:
+        result = cls(**dict(values))
+        raw_font_size = values.get("font_size")
+        if isinstance(raw_font_size, (int, float)) and not isinstance(raw_font_size, bool):
+            result.set_source_font_size(float(raw_font_size))
+        return result
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            item.name: getattr(self, item.name)
-            for item in fields(ElementStyle)
-            if getattr(self, item.name) is not None
-        }
+        result: dict[str, Any] = {}
+        for item in fields(ElementStyle):
+            value = getattr(self, item.name)
+            if value is None:
+                continue
+            result[item.name] = value.to_json_value() if isinstance(value, FontSize) else value
+        return result
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any] | ElementStyle | None) -> ElementStyle:

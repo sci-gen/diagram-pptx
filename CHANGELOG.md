@@ -25,6 +25,11 @@ Versioning.
   bilingual statement-level compatibility documentation.
 - A bilingual `examples/` index with Mermaid sources, PNG previews, and a
   31-slide editable-shape PPTX covering every registered Mermaid family.
+- Unit-aware manual font sizes in points, CSS pixels, or a fraction of slide
+  height, with bare numeric values defaulting to points.
+- Reusable `DiagramSettings`, `TypographySettings`, and `DiagramCompiler`
+  instances for deck-wide defaults without process-global configuration.
+- A versioned JSON Schema for compiler settings.
 
 ### Changed
 
@@ -60,6 +65,9 @@ Versioning.
   editable AutoShapes and remain vertically centered after scaling.
 - PowerPoint edge and sequence-message labels now keep a presentation-safe
   12-point minimum, with their text boxes expanded around the original anchor.
+- Explicit typography follows settings, theme role, source element, theme
+  class/ID, and compile-time override precedence; automatic fitting remains
+  the default and can be disabled per compiler instance.
 
 ## [0.1.0a1] - 2026-07-26
 

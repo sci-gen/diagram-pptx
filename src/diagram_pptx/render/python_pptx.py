@@ -12,7 +12,7 @@ from unicodedata import east_asian_width
 from pptx.dml.color import RGBColor
 from pptx.enum.dml import MSO_THEME_COLOR
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
-from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, MSO_AUTO_SIZE, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.oxml.xmlchemy import OxmlElement
 from pptx.util import Inches, Pt
@@ -28,6 +28,7 @@ from ..scene import (
     SceneText,
 )
 from ..styles import DiagramTheme, ElementStyle, normalize_color
+from ..typography import FontSize, TypographySettings
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +115,7 @@ class _Transform:
     stroke_scale: float
     offset_x: float
     offset_y: float
+    slide_height_points: float
 
     def point(self, point: Point) -> tuple[Any, Any]:
         return (
@@ -158,12 +160,14 @@ class PythonPptxRenderer:
         theme: RenderTheme | None = None,
         shape_registry: dict[str, Any] | None = None,
         inner_padding: float = 0.12,
+        typography: TypographySettings | dict[str, Any] | None = None,
     ) -> None:
         self.legacy_theme = theme
         self.shape_registry = dict(self.DEFAULT_SHAPE_REGISTRY)
         if shape_registry:
             self.shape_registry.update(shape_registry)
         self.inner_padding = inner_padding
+        self.typography = TypographySettings.from_dict(typography)
 
     def render(
         self,
@@ -198,7 +202,14 @@ class PythonPptxRenderer:
         if not scene.elements:
             return RenderResult()
 
-        transform = self._build_transform(scene, bounds)
+        slide_height_points = (
+            target_slide.part.package.presentation_part.presentation.slide_height / 12700.0
+        )
+        transform = self._build_transform(
+            scene,
+            bounds,
+            slide_height_points=slide_height_points,
+        )
         result = RenderResult()
         pending_connections: list[tuple[SceneConnector, list[Any]]] = []
         rendered_by_scene_id: dict[str, list[Any]] = {}
@@ -341,7 +352,10 @@ class PythonPptxRenderer:
 
     @staticmethod
     def _build_transform(
-        scene: DrawingScene, bounds: tuple[float, float, float, float]
+        scene: DrawingScene,
+        bounds: tuple[float, float, float, float],
+        *,
+        slide_height_points: float = 540.0,
     ) -> _Transform:
         scene.recompute_extents()
         logical_width = max(scene.width, 0.001)
@@ -359,6 +373,7 @@ class PythonPptxRenderer:
             stroke_scale=metric_scale,
             offset_x=bounds[0] + (bounds[2] - rendered_width) / 2,
             offset_y=bounds[1] + (bounds[3] - rendered_height) / 2,
+            slide_height_points=slide_height_points,
         )
 
     def _render_container(
@@ -418,6 +433,7 @@ class PythonPptxRenderer:
             default_size=11.0,
             align=PP_ALIGN.LEFT,
             font_scale=transform.font_scale,
+            slide_height_points=transform.slide_height_points,
             min_size=9.0,
             max_size=18.0,
         )
@@ -451,6 +467,7 @@ class PythonPptxRenderer:
                 default_color="#16324F",
                 default_size=15.0,
                 font_scale=transform.font_scale,
+                slide_height_points=transform.slide_height_points,
                 min_size=12.0,
                 max_size=40.0,
             )
@@ -486,6 +503,7 @@ class PythonPptxRenderer:
                 default_color="#16324F",
                 default_size=15.0,
                 font_scale=transform.font_scale,
+                slide_height_points=transform.slide_height_points,
                 min_size=12.0,
                 max_size=40.0,
             )
@@ -525,6 +543,7 @@ class PythonPptxRenderer:
                 item.label,
                 item.style,
                 font_scale=transform.font_scale,
+                slide_height_points=transform.slide_height_points,
             )
             label_width = Inches(label_width_inches)
             label_height = Inches(0.36)
@@ -574,7 +593,13 @@ class PythonPptxRenderer:
                 default_color=item.style.line or "#536273",
                 default_size=12.0,
                 font_scale=transform.font_scale,
-                min_size=12.0,
+                slide_height_points=transform.slide_height_points,
+                min_size=max(
+                    12.0,
+                    self.typography.edge_min_font_size.resolve(
+                        slide_height_points=transform.slide_height_points
+                    ),
+                ),
                 max_size=18.0,
             )
         return connectors, label_shape
@@ -590,6 +615,7 @@ class PythonPptxRenderer:
                     item.text,
                     item.style,
                     font_scale=transform.font_scale,
+                    slide_height_points=transform.slide_height_points,
                 )
             )
             target_height = Inches(0.36)
@@ -624,7 +650,17 @@ class PythonPptxRenderer:
             default_size=12.0,
             align=align,
             font_scale=transform.font_scale,
-            min_size=12.0 if is_edge_text else 9.0,
+            slide_height_points=transform.slide_height_points,
+            min_size=(
+                max(
+                    12.0,
+                    self.typography.edge_min_font_size.resolve(
+                        slide_height_points=transform.slide_height_points
+                    ),
+                )
+                if is_edge_text
+                else 9.0
+            ),
             max_size=40.0,
         )
         shape.text_frame.margin_left = 0
@@ -710,6 +746,7 @@ class PythonPptxRenderer:
         default_size: float,
         align: Any = PP_ALIGN.CENTER,
         font_scale: float = 1.0,
+        slide_height_points: float = 540.0,
         min_size: float = 9.0,
         max_size: float = 28.0,
     ) -> None:
@@ -725,8 +762,26 @@ class PythonPptxRenderer:
             run = paragraph.add_run()
             run.text = line
             run.font.name = style.font_family or "Aptos"
-            fitted_size = (style.font_size or default_size) * font_scale
-            run.font.size = Pt(max(min_size, min(max_size, fitted_size)))
+            fitted_size, is_absolute = self._font_points(
+                style,
+                default_size=default_size,
+                font_scale=font_scale,
+                slide_height_points=slide_height_points,
+            )
+            if is_absolute:
+                resolved_size = fitted_size
+            else:
+                global_min = self.typography.min_font_size.resolve(
+                    slide_height_points=slide_height_points
+                )
+                global_max = self.typography.max_font_size.resolve(
+                    slide_height_points=slide_height_points
+                )
+                resolved_size = max(
+                    max(min_size, global_min),
+                    min(min(max_size, global_max), fitted_size),
+                )
+            run.font.size = Pt(resolved_size)
             run.font.bold = bool(style.bold)
             run.font.italic = bool(style.italic)
             self._apply_font_color(
@@ -734,6 +789,32 @@ class PythonPptxRenderer:
                 style.text or default_color,
                 opacity=style.opacity,
             )
+        if isinstance(style.font_size, FontSize) and style.font_size.is_absolute:
+            text_frame.auto_size = (
+                MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+                if self.typography.fit == "fit"
+                else MSO_AUTO_SIZE.NONE
+            )
+
+    @staticmethod
+    def _font_points(
+        style: ElementStyle,
+        *,
+        default_size: float,
+        font_scale: float,
+        slide_height_points: float,
+    ) -> tuple[float, bool]:
+        value = style.font_size
+        if isinstance(value, FontSize):
+            if value.is_absolute:
+                return (
+                    value.resolve(slide_height_points=slide_height_points),
+                    True,
+                )
+            return value.value * font_scale, False
+        if value is None:
+            return default_size * font_scale, False
+        return float(value) * font_scale, False
 
     @staticmethod
     def _apply_fill(fill: Any, style: ElementStyle, *, default: str) -> None:
@@ -863,12 +944,13 @@ class PythonPptxRenderer:
         if effect_ref is not None:
             effect_ref.set("idx", "0")
 
-    @staticmethod
     def _connector_label_width(
+        self,
         text: str,
         style: ElementStyle,
         *,
         font_scale: float,
+        slide_height_points: float = 540.0,
     ) -> float:
         """Estimate a compact physical label width for Latin and CJK text."""
 
@@ -881,7 +963,17 @@ class PythonPptxRenderer:
             ),
             default=0,
         )
-        font_points = max(12.0, min(18.0, (style.font_size or 12.0) * font_scale))
+        font_points, is_absolute = self._font_points(
+            style,
+            default_size=12.0,
+            font_scale=font_scale,
+            slide_height_points=slide_height_points,
+        )
+        if not is_absolute:
+            font_points = max(
+                self.typography.edge_min_font_size.resolve(slide_height_points=slide_height_points),
+                min(18.0, font_points),
+            )
         return max(0.42, min(3.0, columns * font_points / 72.0 * 0.55 + 0.18))
 
     @staticmethod

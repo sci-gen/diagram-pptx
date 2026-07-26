@@ -31,6 +31,7 @@ from .styles import (
     normalize_color,
     style_preset,
 )
+from .typography import DiagramSettings, FontSize, TypographySettings
 
 
 class CompileBackend(str, Enum):
@@ -178,6 +179,28 @@ class SceneResult:
         }
 
 
+@dataclass(slots=True)
+class DiagramCompiler:
+    """Reusable compiler carrying process-local default settings.
+
+    This avoids hidden environment variables or module-global mutation while
+    allowing one typography policy to be shared by many diagrams.
+    """
+
+    settings: DiagramSettings = field(default_factory=DiagramSettings)
+
+    def __post_init__(self) -> None:
+        self.settings = DiagramSettings.from_dict(self.settings)
+
+    def compile(self, diagram: MermaidDocument | SemanticDiagram, **options: Any) -> CompileResult:
+        options.setdefault("settings", self.settings)
+        return compile_diagram(diagram, **options)
+
+    def render_mermaid(self, source: str, **options: Any) -> CompileResult:
+        options.setdefault("settings", self.settings)
+        return render_mermaid(source, **options)
+
+
 def build_scene(
     diagram: MermaidDocument | SemanticDiagram,
     *,
@@ -188,6 +211,7 @@ def build_scene(
     label_background: str | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
+    settings: DiagramSettings | Mapping[str, Any] | None = None,
     mmdc_path: str | None = None,
     strict: bool = False,
     timeout: float = 30.0,
@@ -279,7 +303,12 @@ def build_scene(
         mermaid_version = official.version
         diagnostics.extend(official.diagnostics)
 
-    resolved_theme = DEFAULT_THEME.merged(style_preset(style)).merged(theme)
+    resolved_settings = DiagramSettings.from_dict(settings)
+    resolved_theme = (
+        DEFAULT_THEME.merged(_typography_theme(resolved_settings.typography))
+        .merged(style_preset(style))
+        .merged(theme)
+    )
     resolver = StyleResolver(resolved_theme, source_style=source_style)
     _resolve_scene_styles(
         scene,
@@ -288,7 +317,8 @@ def build_scene(
         colormap_style,
         label_background=label_background,
     )
-    _improve_shape_label_typography(scene)
+    if resolved_settings.typography.fit == "fit":
+        _improve_shape_label_typography(scene)
     return SceneResult(
         backend_used=backend_used.value,
         diagnostics=diagnostics,
@@ -311,6 +341,7 @@ def compile_diagram(
     label_background: str | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
+    settings: DiagramSettings | Mapping[str, Any] | None = None,
     group: bool = True,
     mmdc_path: str | None = None,
     strict: bool = False,
@@ -342,6 +373,8 @@ def compile_diagram(
             color-map ``label_fill`` channel take precedence.
         source_style: Precedence policy for Mermaid-authored styles.
         style_overrides: Final element styles keyed by semantic element ID.
+        settings: Reusable package settings. Typography defaults sit between
+            package defaults and the explicit theme.
         group: Put the complete diagram in one editable PowerPoint group.
         mmdc_path: Optional Mermaid CLI executable path.
         strict: Reject unsupported Mermaid syntax and untested Mermaid CLI
@@ -372,6 +405,7 @@ def compile_diagram(
         label_background=label_background,
         source_style=source_style,
         style_overrides=style_overrides,
+        settings=settings,
         mmdc_path=mmdc_path,
         strict=strict,
         timeout=timeout,
@@ -383,7 +417,10 @@ def compile_diagram(
         position=position,
         relative_bounds=relative_bounds,
     )
-    native_result = (renderer or PythonPptxRenderer()).render(
+    resolved_settings = DiagramSettings.from_dict(settings)
+    native_result = (
+        renderer or PythonPptxRenderer(typography=resolved_settings.typography)
+    ).render(
         scene_result.scene,
         target=slide,
         bounds=resolved_bounds,
@@ -413,6 +450,7 @@ def render_mermaid(
     label_background: str | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
+    settings: DiagramSettings | Mapping[str, Any] | None = None,
     group: bool = True,
     mmdc_path: str | None = None,
     strict: bool = False,
@@ -440,6 +478,7 @@ def render_mermaid(
             labels. Use an explicit slide/canvas color or ``"transparent"``.
         source_style: Mermaid style precedence policy.
         style_overrides: Element styles keyed by semantic ID.
+        settings: Reusable typography and compiler defaults.
         group: Group all generated shapes as one editable object.
         mmdc_path: Optional Mermaid CLI executable path.
         strict: Reject unsupported syntax and untested Mermaid CLI versions.
@@ -490,7 +529,12 @@ def render_mermaid(
                     "Custom legacy layout engines must migrate to a DrawingScene backend"
                 )
             scene = _layout_flow(model)
-            resolved_theme = DEFAULT_THEME.merged(style_preset(style)).merged(theme)
+            resolved_settings = DiagramSettings.from_dict(settings)
+            resolved_theme = (
+                DEFAULT_THEME.merged(_typography_theme(resolved_settings.typography))
+                .merged(style_preset(style))
+                .merged(theme)
+            )
             resolver = StyleResolver(resolved_theme, source_style=source_style)
             _resolve_scene_styles(
                 scene,
@@ -499,7 +543,11 @@ def render_mermaid(
                 colormap_style,
                 label_background=label_background,
             )
-            native_result = (renderer or PythonPptxRenderer()).render(
+            if resolved_settings.typography.fit == "fit":
+                _improve_shape_label_typography(scene)
+            native_result = (
+                renderer or PythonPptxRenderer(typography=resolved_settings.typography)
+            ).render(
                 scene,
                 target=slide,
                 bounds=resolve_diagram_bounds(
@@ -528,6 +576,7 @@ def render_mermaid(
             label_background=label_background,
             source_style=source_style,
             style_overrides=style_overrides,
+            settings=settings,
             group=group,
             strict=strict,
             renderer=renderer,
@@ -546,6 +595,7 @@ def render_mermaid(
         label_background=label_background,
         source_style=source_style,
         style_overrides=style_overrides,
+        settings=settings,
         group=group,
         mmdc_path=mmdc_path,
         strict=strict,
@@ -610,6 +660,31 @@ def _resolve_scene_styles(
             _apply_colormap_style(element, colormap)
 
 
+def _typography_theme(settings: TypographySettings) -> DiagramTheme:
+    roles: dict[str, ElementStyle] = {}
+    if settings.node is not None:
+        roles["node.default"] = ElementStyle(font_size=settings.node)
+    if settings.edge is not None:
+        roles["edge.default"] = ElementStyle(font_size=settings.edge)
+        roles["edge.label"] = ElementStyle(font_size=settings.edge)
+    if settings.group is not None:
+        roles["group.default"] = ElementStyle(font_size=settings.group)
+    if settings.text is not None:
+        roles["text.default"] = ElementStyle(font_size=settings.text)
+    return DiagramTheme(
+        defaults=ElementStyle(font_size=settings.font_size),
+        roles=roles,
+    )
+
+
+def _source_scaled_font_size(value: FontSize | float | int | None) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, FontSize):
+        return None if value.is_absolute else value.value
+    return float(value)
+
+
 def _improve_shape_label_typography(scene: DrawingScene) -> None:
     """Enlarge labels that visually belong to a shape while preserving fit."""
 
@@ -645,15 +720,18 @@ def _improve_shape_label_typography(scene: DrawingScene) -> None:
     for shape in shapes:
         if not shape.text:
             continue
+        current = _source_scaled_font_size(shape.style.font_size)
+        if current is None and shape.style.font_size is not None:
+            continue
         target = _shape_label_font_size(
             shape.text,
             shape.box,
             font_units=font_units,
             shape=shape.shape,
         )
-        current = shape.style.font_size or 15.0
+        current = current or 15.0
         if target > current:
-            shape.style.font_size = target
+            shape.style.set_source_font_size(target)
 
     assignments: dict[int, tuple[SceneShape, list[SceneText]]] = {}
     for text_item in (
@@ -718,11 +796,14 @@ def _resize_contained_shape_labels(
             shape=shape.shape,
         )
         target = min(40.0, height_limit, width_limit)
-        current = item.style.font_size or 12.0
+        current = _source_scaled_font_size(item.style.font_size)
+        if current is None and item.style.font_size is not None:
+            continue
+        current = current or 12.0
         if target <= current:
             continue
         _resize_text_box(item, target / current)
-        item.style.font_size = target
+        item.style.set_source_font_size(target)
 
 
 def _shape_label_font_size(

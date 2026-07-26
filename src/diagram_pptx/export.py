@@ -22,6 +22,7 @@ from .diagnostics import Diagnostic, ImageExportDependencyError
 from .model import MermaidDocument, SemanticDiagram
 from .render.svg import SvgRenderer
 from .styles import ColorMapStyle, DiagramTheme, ElementStyle, SourceStylePolicy, normalize_color
+from .typography import DiagramSettings
 
 ImageFormat = Literal["svg", "png", "jpeg", "jpg"]
 
@@ -70,6 +71,7 @@ def save_diagram(
     colors: ColorMapStyle | ColorMapOptions | ColorMapName | None = None,
     source_style: SourceStylePolicy = "merge",
     style_overrides: Mapping[str, ElementStyle | Mapping[str, Any]] | None = None,
+    settings: DiagramSettings | Mapping[str, Any] | None = None,
     mmdc_path: str | None = None,
     strict: bool = False,
     timeout: float = 30.0,
@@ -95,6 +97,7 @@ def save_diagram(
         label_background=label_background,
         source_style=source_style,
         style_overrides=style_overrides,
+        settings=settings,
         mmdc_path=mmdc_path,
         strict=strict,
         timeout=timeout,

@@ -13,11 +13,12 @@ Each preview is rendered from the generated
 Every diagram in that deck is made from editable PowerPoint shapes—there is no
 full-diagram raster image embedded in the PPTX.
 
-![Mermaid 11.16 diagram gallery](mermaid-syntax/overview.png)
+[![Mermaid 11.16 diagram gallery](mermaid-syntax/overview.png)](build_mermaid_syntax_gallery.py)
 
 - **Native**: typed Python model and Pure Python layout; no Node.js required.
 - **Official → shapes**: Mermaid CLI supplies geometry, then `diagram-pptx`
   converts the SVG into editable PowerPoint shapes.
+- Click the overview image to open the Python generator.
 - Click a preview to open its Mermaid source.
 
 | | |

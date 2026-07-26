@@ -39,7 +39,27 @@
         "line_width": { "type": ["number", "null"], "exclusiveMinimum": 0 },
         "dash": { "type": ["string", "null"] },
         "font_family": { "type": ["string", "null"] },
-        "font_size": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "font_size": {
+          "anyOf": [
+            { "type": "number", "exclusiveMinimum": 0 },
+            {
+              "type": "string",
+              "pattern": "^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\s*(?:pt|px|%sh|%h)$"
+            },
+            {
+              "type": "object",
+              "required": ["value", "unit"],
+              "properties": {
+                "value": { "type": "number", "exclusiveMinimum": 0 },
+                "unit": {
+                  "enum": ["pt", "px", "slide_height", "%sh", "%h"]
+                }
+              },
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ]
+        },
         "bold": { "type": ["boolean", "null"] },
         "italic": { "type": ["boolean", "null"] },
         "opacity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },

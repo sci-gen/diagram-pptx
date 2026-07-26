@@ -17,6 +17,7 @@ from ..scene import (
     SceneText,
 )
 from ..styles import ElementStyle, normalize_color
+from ..typography import FontSize
 
 _SVG_NS = "http://www.w3.org/2000/svg"
 ET.register_namespace("", _SVG_NS)
@@ -373,7 +374,12 @@ def _text(
     rotation: float = 0.0,
 ) -> None:
     lines = re.split(r"(?:\r?\n|<br\s*/?>)", value, flags=re.IGNORECASE) or [""]
-    font_size = style.font_size or default_size
+    if isinstance(style.font_size, FontSize):
+        font_size = (
+            style.font_size.resolve() if style.font_size.is_absolute else style.font_size.value
+        )
+    else:
+        font_size = float(style.font_size or default_size)
     line_height = font_size * 1.2 * points_to_units
     total_height = line_height * max(1, len(lines))
     first_y = box.y + box.height / 2 - total_height / 2 + line_height * 0.82

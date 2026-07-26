@@ -20,6 +20,7 @@ from ..scene import (
     SceneText,
 )
 from ..styles import ElementStyle, normalize_color
+from ..typography import FontSize
 
 _NUMBER_RE = re.compile(r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 _PATH_TOKEN_RE = re.compile(r"[AaCcHhLlMmQqSsTtVvZz]|-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
@@ -194,7 +195,7 @@ def _improve_radar_typography(scene: DrawingScene) -> None:
         )
         if target_size is None:
             continue
-        current_size = item.style.font_size or 14.0
+        current_size = _font_size_value(item.style.font_size, 14.0)
         if current_size >= target_size:
             continue
         scale = target_size / current_size
@@ -213,7 +214,7 @@ def _improve_radar_typography(scene: DrawingScene) -> None:
             width,
             height,
         )
-        item.style.font_size = target_size
+        item.style.set_source_font_size(target_size)
 
 
 def _scale_point_around(point: Point, center: Point, scale: float) -> Point:
@@ -283,7 +284,7 @@ def _improve_quadrant_chart(scene: DrawingScene) -> None:
                 width,
                 height,
             )
-            item.style.font_size = point_font
+            item.style.set_source_font_size(point_font)
         elif isinstance(item, SceneText) and "labels" in item.classes:
             label_center = _scale_point_around(item.box.center, center, plot_scale)
             width = _estimated_text_width(item.text, axis_font)
@@ -298,7 +299,7 @@ def _improve_quadrant_chart(scene: DrawingScene) -> None:
                 width,
                 height,
             )
-            item.style.font_size = axis_font
+            item.style.set_source_font_size(axis_font)
         elif isinstance(item, SceneText) and "title" in item.classes:
             width = _estimated_text_width(item.text, title_font)
             height = title_font * 1.2
@@ -309,7 +310,7 @@ def _improve_quadrant_chart(scene: DrawingScene) -> None:
                 width,
                 height,
             )
-            item.style.font_size = title_font
+            item.style.set_source_font_size(title_font)
 
 
 def _improve_sankey_typography(scene: DrawingScene) -> None:
@@ -355,7 +356,7 @@ def _improve_sankey_typography(scene: DrawingScene) -> None:
             width,
             height,
         )
-        item.style.font_size = target_font
+        item.style.set_source_font_size(target_font)
 
 
 def _diagram_relative_font(
@@ -451,7 +452,7 @@ def _walk(
                 inherited_style,
             )
             if style.font_size is None:
-                style.font_size = 16.0
+                style.set_source_font_size(16.0)
             text_role = "edge.label" if "edgeLabel" in classes else "text.default"
             if text_role == "edge.label":
                 # The label background belongs to the XHTML child in Mermaid
@@ -619,7 +620,10 @@ def _walk(
     if tag == "text":
         text = _svg_text_content(element)
         if text:
-            font_size = style.font_size or _length(element.get("font-size"), 14.0)
+            font_size = _font_size_value(
+                style.font_size,
+                _length(element.get("font-size"), 14.0),
+            )
             x, y = _text_position(element, font_size)
             width = max(font_size * 0.5, _estimated_text_width(text, font_size))
             height = max(1.0, font_size * 1.2 * max(1, len(text.splitlines())))
@@ -1321,18 +1325,21 @@ def _style_from_declarations(
     current_color = _color_or_none(declarations.get("color"))
     fill = _paint_or_none(declarations.get("fill"), current_color, paint_servers)
     line = _paint_or_none(declarations.get("stroke"), current_color, paint_servers)
-    return ElementStyle(
+    style = ElementStyle(
         fill=_color_with_alpha(fill, declarations.get("fill-opacity")),
         line=_color_with_alpha(line, declarations.get("stroke-opacity")),
         text=current_color,
         line_width=line_width,
         dash="dash" if has_dash else None,
         font_family=declarations.get("font-family"),
-        font_size=_length(declarations.get("font-size"), 0.0) or None,
         bold=_font_weight_is_bold(declarations.get("font-weight")),
         italic=_font_style_is_italic(declarations.get("font-style")),
         opacity=opacity,
     )
+    # SVG sizes are source-coordinate metrics and must scale with the imported
+    # diagram. Assign after construction so public numeric inputs remain pt.
+    style.set_source_font_size(_length(declarations.get("font-size"), 0.0) or None)
+    return style
 
 
 def _font_weight_is_bold(value: str | None) -> bool | None:
@@ -1345,6 +1352,12 @@ def _font_weight_is_bold(value: str | None) -> bool | None:
         return int(float(lowered)) >= 600
     except ValueError:
         return False
+
+
+def _font_size_value(value: FontSize | float | int | None, default: float) -> float:
+    if isinstance(value, FontSize):
+        return value.resolve() if value.is_absolute else value.value
+    return float(value or default)
 
 
 def _font_style_is_italic(value: str | None) -> bool | None:

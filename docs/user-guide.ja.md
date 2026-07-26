@@ -12,6 +12,7 @@
 - [PowerPoint描画](#powerpoint描画)
 - [画像出力](#画像出力)
 - [配置](#配置)
+- [文字サイズと単位](#文字サイズと単位)
 - [BackendとNode.js](#backendとnodejs)
 - [テーマとカラーマップ](#テーマとカラーマップ)
 - [Mermaid対応範囲](#mermaid対応範囲)
@@ -175,6 +176,66 @@ render_mermaid(
 
 指定したboundsが図の利用可能領域になります。layoutが内部aspect ratioを計算し、
 rendererがscene全体をその領域へ収めます。
+
+## 文字サイズと単位
+
+文字サイズの既定単位はptです。個々の要素では単位も明示できます。
+
+```python
+from diagram_pptx import FontSize
+
+document.model.nodes["api"].style.font_size = 18          # 18 pt
+document.model.nodes["db"].style.font_size = "24px"       # 96 dpiで18 pt
+document.model.nodes["queue"].style.font_size = "2.5%sh"  # スライド高の2.5%
+```
+
+型付き指定は`FontSize.pt(18)`、`FontSize.px(24)`、
+`FontSize.slide_height(0.025)`です。スライド比率はdiagramのboundsではなく
+ページ全体の高さを基準にするため、同じスライド内で左右に配置した図でも文字の
+大きさが揃います。
+
+1つの設定をデッキ全体で使う場合は、再利用可能なcompiler instanceを作ります。
+
+```python
+from diagram_pptx import (
+    DiagramCompiler,
+    DiagramSettings,
+    TypographySettings,
+)
+
+compiler = DiagramCompiler(
+    DiagramSettings(
+        typography=TypographySettings(
+            node="18pt",
+            edge="12pt",
+            group="14pt",
+            fit="fit",
+        )
+    )
+)
+
+compiler.render_mermaid(source, slide=slide, position="left")
+compiler.render_mermaid(other_source, slide=slide, position="right")
+```
+
+既定は`fit="fit"`です。単位付きの明示サイズをPowerPoint上の希望サイズとして
+扱い、必要な場合は図形内へ収まるよう縮小します。`fit="none"`では、はみ出しても
+指定サイズを維持します。自動文字には通常9pt、connector／messageには12ptの
+下限があり、`min_font_size`と`edge_min_font_size`で変更できます。
+
+文字設定の優先順位は通常のstyle階層と同じです。
+
+```text
+package defaults
+< DiagramSettings
+< theme role
+< Mermaid/source element style
+< theme class and ID
+< compile時style_overrides
+```
+
+OS環境変数やmodule globalではなくinstance設定なので、同じPython process内でも
+デッキごとに異なるpolicyを安全に使用できます。
 
 ## BackendとNode.js
 

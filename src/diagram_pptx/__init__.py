@@ -7,6 +7,7 @@ from .compiler import (
     ColorMapOptions,
     CompileBackend,
     CompileResult,
+    DiagramCompiler,
     PlacementPreset,
     RelativeBounds,
     SceneResult,
@@ -81,6 +82,7 @@ from .styles import (
     contrast_text_color,
     sample_colormap,
 )
+from .typography import DiagramSettings, FontFit, FontSize, TypographySettings
 
 __all__ = [
     "Box",
@@ -96,11 +98,13 @@ __all__ = [
     "ColorMapStyle",
     "Diagnostic",
     "Diagram",
+    "DiagramCompiler",
     "DiagramEdge",
     "DiagramError",
     "DiagramGroup",
     "DiagramNode",
     "DiagramPptxError",
+    "DiagramSettings",
     "DiagramTheme",
     "DrawingScene",
     "ERAttribute",
@@ -112,6 +116,8 @@ __all__ = [
     "FlowEdge",
     "FlowGroup",
     "FlowNode",
+    "FontFit",
+    "FontSize",
     "ExportResult",
     "ImageExportDependencyError",
     "ImageFormat",
@@ -147,6 +153,7 @@ __all__ = [
     "StylePreset",
     "SvgRenderResult",
     "SvgRenderer",
+    "TypographySettings",
     "build_scene",
     "compile_diagram",
     "contrast_text_color",

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sci-gen/diagram-pptx/schemas/settings-v1.json",
+  "title": "diagram-pptx settings",
+  "type": "object",
+  "properties": {
+    "typography": {
+      "type": "object",
+      "properties": {
+        "fit": { "enum": ["fit", "none"] },
+        "font_size": { "$ref": "#/$defs/fontSize" },
+        "node": { "$ref": "#/$defs/fontSize" },
+        "edge": { "$ref": "#/$defs/fontSize" },
+        "group": { "$ref": "#/$defs/fontSize" },
+        "text": { "$ref": "#/$defs/fontSize" },
+        "min_font_size": { "$ref": "#/$defs/fontSize" },
+        "edge_min_font_size": { "$ref": "#/$defs/fontSize" },
+        "max_font_size": { "$ref": "#/$defs/fontSize" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "fontSize": {
+      "anyOf": [
+        { "type": "number", "exclusiveMinimum": 0 },
+        {
+          "type": "string",
+          "pattern": "^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)\\s*(?:pt|px|%sh|%h)$"
+        },
+        {
+          "type": "object",
+          "required": ["value", "unit"],
+          "properties": {
+            "value": { "type": "number", "exclusiveMinimum": 0 },
+            "unit": {
+              "enum": ["pt", "px", "slide_height", "%sh", "%h"]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

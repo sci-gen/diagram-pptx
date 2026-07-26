@@ -13,6 +13,7 @@ project README.
 - [PowerPoint rendering](#powerpoint-rendering)
 - [Image export](#image-export)
 - [Placement](#placement)
+- [Typography and units](#typography-and-units)
 - [Backends and Node.js](#backends-and-nodejs)
 - [Themes and color maps](#themes-and-color-maps)
 - [Mermaid support](#mermaid-support)
@@ -180,6 +181,68 @@ Placement accepts:
 The selected bounds determine the diagram's available area. Layout computes
 the aspect ratio internally and the renderer scales the resulting scene into
 that area.
+
+## Typography and units
+
+Font sizes are points by default. Explicit units are also available:
+
+```python
+from diagram_pptx import FontSize
+
+document.model.nodes["api"].style.font_size = 18          # 18 pt
+document.model.nodes["db"].style.font_size = "24px"       # 18 pt at 96 dpi
+document.model.nodes["queue"].style.font_size = "2.5%sh"  # 2.5% of slide height
+```
+
+The typed equivalents are `FontSize.pt(18)`, `FontSize.px(24)`, and
+`FontSize.slide_height(0.025)`. Slide-height units use the complete page, not
+the diagram bounds, so typography remains consistent when diagrams occupy
+different regions of the same slide.
+
+Use a reusable compiler instance to keep one policy across a deck:
+
+```python
+from diagram_pptx import (
+    DiagramCompiler,
+    DiagramSettings,
+    TypographySettings,
+)
+
+compiler = DiagramCompiler(
+    DiagramSettings(
+        typography=TypographySettings(
+            node="18pt",
+            edge="12pt",
+            group="14pt",
+            fit="fit",
+        )
+    )
+)
+
+compiler.render_mermaid(source, slide=slide, position="left")
+compiler.render_mermaid(other_source, slide=slide, position="right")
+```
+
+`fit="fit"` is the default. An explicit unit-aware size is the preferred
+PowerPoint size and may shrink to fit its shape. `fit="none"` keeps the
+specified size even if it overflows. Automatic text retains a 9 pt general
+floor and a 12 pt connector/message floor; both are configurable through
+`min_font_size` and `edge_min_font_size`.
+
+Typography follows the normal style hierarchy:
+
+```text
+package defaults
+< DiagramSettings
+< theme role
+< Mermaid/source element style
+< theme class and ID
+< compile-time style_overrides
+```
+
+This is instance configuration rather than an operating-system environment
+variable, so separate decks can safely use different policies in one Python
+process.
 
 ## Backends and Node.js
 
