@@ -147,10 +147,41 @@ def _improve_radar_typography(scene: DrawingScene) -> None:
 
     if scene.kind != "radar":
         return
+    graticules = [
+        item
+        for item in scene.elements
+        if isinstance(item, SceneShape) and "radarGraticule" in item.classes
+    ]
+    if graticules:
+        outer = max(graticules, key=lambda item: item.box.width * item.box.height)
+        center = outer.box.center
+        geometry_scale = 0.86
+        for item in scene.elements:
+            if isinstance(item, SceneShape) and not item.classes.isdisjoint(
+                {"radarGraticule", "radarCurve-0", "radarCurve-1"}
+            ):
+                item.box = _scale_box_around(item.box, center, geometry_scale)
+                if item.points:
+                    item.points = [
+                        _scale_point_around(point, center, geometry_scale) for point in item.points
+                    ]
+                    item.box = _box_for_points(item.points)
+            elif isinstance(item, SceneConnector) and "radarAxisLine" in item.classes:
+                item.points = [
+                    _scale_point_around(point, center, geometry_scale) for point in item.points
+                ]
+            elif isinstance(item, SceneText) and "radarAxisLabel" in item.classes:
+                label_center = _scale_point_around(item.box.center, center, 0.91)
+                item.box = Box(
+                    label_center.x - item.box.width / 2,
+                    label_center.y - item.box.height / 2,
+                    item.box.width,
+                    item.box.height,
+                )
     target_sizes = {
-        "radarAxisLabel": 24.0,
-        "radarLegendText": 20.0,
-        "radarTitle": 24.0,
+        "radarAxisLabel": 30.0,
+        "radarLegendText": 22.0,
+        "radarTitle": 26.0,
     }
     for item in scene.elements:
         if not isinstance(item, SceneText):
@@ -181,6 +212,23 @@ def _improve_radar_typography(scene: DrawingScene) -> None:
             height,
         )
         item.style.font_size = target_size
+
+
+def _scale_point_around(point: Point, center: Point, scale: float) -> Point:
+    return Point(
+        center.x + (point.x - center.x) * scale,
+        center.y + (point.y - center.y) * scale,
+    )
+
+
+def _scale_box_around(box: Box, center: Point, scale: float) -> Box:
+    top_left = _scale_point_around(Point(box.x, box.y), center, scale)
+    return Box(
+        top_left.x,
+        top_left.y,
+        box.width * scale,
+        box.height * scale,
+    )
 
 
 def _walk(
@@ -503,13 +551,14 @@ def _walk(
 def _coalesce_node_labels(scene: DrawingScene) -> None:
     """Put simple node labels in their native PowerPoint shape.
 
-    Mermaid SVG represents geometry and labels separately.  For flow and state
-    nodes a single label can safely become the shape's own text frame, which is
-    more editable and prevents a redundant textbox from drifting during group
-    scaling.  Structured diagrams keep their independent compartment text.
+    Mermaid SVG represents geometry and labels separately.  For flow, state,
+    and Kanban nodes a single label can safely become the shape's own text
+    frame, which is more editable and prevents a redundant textbox from
+    drifting during group scaling. Structured diagrams keep their independent
+    compartment text.
     """
 
-    if scene.kind not in {"flowchart", "state"}:
+    if scene.kind not in {"flowchart", "kanban", "state"}:
         return
     shapes_by_id: dict[str, list[SceneShape]] = {}
     for element in scene.elements:

@@ -210,7 +210,7 @@
       "backend_used": "official",
       "source": "sources/kanban.mmd",
       "image": "images/kanban.png",
-      "editable_shape_count": 17
+      "editable_shape_count": 13
     },
     {
       "slide": 22,

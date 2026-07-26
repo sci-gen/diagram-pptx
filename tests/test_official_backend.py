@@ -96,6 +96,24 @@ def test_mermaid_svg_ignores_empty_label_rectangles() -> None:
     assert shapes[0].text == "Alpha"
 
 
+def test_mermaid_svg_puts_kanban_card_text_in_the_card_shape() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 80">
+  <g id="flowchart-task1-0" class="node items">
+    <rect class="label-container" x="10" y="10" width="200" height="50" rx="4"/>
+    <text class="label" x="110" y="40" text-anchor="middle">Research</text>
+  </g>
+</svg>
+""",
+        kind="kanban",
+    )
+
+    card = next(item for item in scene.elements if isinstance(item, SceneShape))
+    assert card.text == "Research"
+    assert not any(isinstance(item, SceneText) for item in scene.elements)
+
+
 def test_mermaid_svg_samples_elliptical_arc_paths() -> None:
     scene = import_mermaid_svg(
         """\
@@ -149,6 +167,8 @@ def test_mermaid_svg_enlarges_radar_typography_for_slide_readability() -> None:
     scene = import_mermaid_svg(
         """\
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 700">
+  <circle class="radarGraticule" cx="350" cy="350" r="300"/>
+  <line class="radarAxisLine" x1="350" y1="350" x2="350" y2="50"/>
   <text class="radarAxisLabel" x="350" y="30"
         text-anchor="middle" font-size="12">Speed</text>
   <text class="radarLegendText" x="610" y="90"
@@ -161,10 +181,12 @@ def test_mermaid_svg_enlarges_radar_typography_for_slide_readability() -> None:
     )
 
     labels = {item.text: item for item in scene.elements if isinstance(item, SceneText)}
-    assert labels["Speed"].style.font_size == 24
-    assert labels["Alpha"].style.font_size == 20
-    assert labels["Product comparison"].style.font_size == 24
-    assert labels["Speed"].box.width == pytest.approx(67.68)
+    outer = next(item for item in scene.elements if isinstance(item, SceneShape))
+    assert outer.box.width == pytest.approx(516)
+    assert labels["Speed"].style.font_size == 30
+    assert labels["Alpha"].style.font_size == 22
+    assert labels["Product comparison"].style.font_size == 26
+    assert labels["Speed"].box.width == pytest.approx(84.6)
     assert labels["Product comparison"].box.center.x == pytest.approx(labels["Speed"].box.center.x)
 
 

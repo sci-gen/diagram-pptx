@@ -46,6 +46,10 @@ Versioning.
 - Shape labels now use adaptive typography with up to two-thirds of the
   available height, constrained by text width, line count, neighboring labels,
   and shape-specific padding.
+- Official Kanban card labels now live directly in each editable card
+  AutoShape instead of overlapping standalone text boxes.
+- Official Radar output now uses a smaller plot radius with larger axis,
+  legend, and title typography.
 
 ## [0.1.0a1] - 2026-07-26
 
