@@ -1,130 +1,177 @@
-# Architecture and OSS evolution
+# Architecture
 
-## Design objective
+## Compiler pipeline
 
-The core must not know Mermaid syntax or PowerPoint XML. It represents the
-meaning of a graph and a positioned graph. Importers, layout engines, and
-renderers are replaceable adapters around those two models.
+The package boundary is:
 
 ```text
-              ┌─────────────────┐
-Mermaid ─────▶│                 │
-JSON ────────▶│   Diagram IR    │
-Graphviz ────▶│                 │
-              └────────┬────────┘
-                       │ LayoutEngine.apply()
-                       ▼
-              ┌─────────────────┐
-              │  DiagramLayout  │
-              │ nodes + routes  │
-              └────────┬────────┘
-                       │ DiagramRenderer.render()
-             ┌─────────┼─────────┐
-             ▼         ▼         ▼
-          PowerPoint   SVG      future
+parse → semantic model → layout → DrawingScene → style resolution → python-pptx
 ```
 
-The `contracts.py` protocols are structural. Third-party adapters do not need
-to inherit framework base classes.
+Each stage has one responsibility:
 
-## Model boundaries
+1. A frontend parses source text with source locations and diagnostics.
+2. A typed, mutable semantic model represents diagram meaning.
+3. A layout backend chooses geometry.
+4. `DrawingScene` stores positioned shapes, connectors, text, containers,
+   z-order, and semantic IDs.
+5. `StyleResolver` applies theme precedence and final color mapping.
+6. `PythonPptxRenderer` knows OOXML and emits editable native slide objects.
 
-`Diagram` is semantic:
+The renderer never reads Mermaid syntax or a semantic model. Frontends and
+layout engines never import PowerPoint enums or XML helpers.
 
-- node identity, label, shape intent, style tokens, and metadata
-- directed or undirected edges and their labels
-- groups and parent relationships
-- reading/layout direction
+`python-pptx` is an external runtime dependency rather than vendored code.
+Callers create or reuse their own `Presentation` and slide, then
+`diagram-pptx` adds editable native objects to that slide. A compatible
+preinstalled `python-pptx` is reused by normal package installation.
 
-`DiagramLayout` is geometric:
+## Semantic roots
 
-- positioned node boxes
-- routed edge points
-- positioned group boxes
-- logical units independent of inches, EMUs, SVG pixels, or canvas size
+The five roots intentionally remain distinct:
 
-Renderer-specific objects must not leak into either model. In particular,
-`MSO_SHAPE`, Open XML elements, and python-pptx shape instances belong only in
-`render/python_pptx.py`.
+- `FlowDiagram`: nodes, edges, nested visual groups
+- `SequenceDiagram`: participants and ordered events/fragments
+- `ClassDiagram`: classes, compartments, notes, typed relationships
+- `EntityRelationshipDiagram`: entities, attributes, keys, cardinalities
+- `StateDiagram`: states, composites, pseudostates, transitions
 
-## Why diagram families should not share one graph IR
+Forcing these into a single graph type would erase useful constraints. Shared
+behavior lives in style primitives, selection helpers, serialization, and the
+DrawingScene layer.
 
-Flowcharts, dependency diagrams, and many state diagrams fit `Diagram`.
-Sequence diagrams need lifelines and time ordering; ER diagrams need entities,
-attributes, and cardinality; Gantt charts need time ranges and calendars.
+ID-bearing entities are mutable dataclasses and stored in insertion-ordered
+dictionaries. This makes application code straightforward:
 
-A future package can add sibling semantic roots:
-
-```text
-Diagram
-SequenceDiagram
-EntityRelationshipDiagram
-TimelineDiagram
+```python
+document.model.nodes["db"].label = "Primary DB"
+document.model.select(class_="storage")
 ```
 
-They can still share styling primitives, renderer utilities, and public
-packaging without corrupting the graph model with optional fields.
+## Native and Official layout
 
-## PowerPoint rendering choices
+Native is deterministic and has no Node dependency. Flow and State share the
+layered graph engine; Class and ER add compartment-aware sizing; Sequence uses
+participant columns and event rows.
 
-1. AutoShape is preferred when `NodeShape` has a native PowerPoint equivalent.
-2. Freeform should be the next adapter for shapes expressible as geometry.
-3. SVG is a final fallback for shapes that cannot remain native.
+Official invokes `mmdc` without a shell, with a timeout, isolated temporary
+files, captured stderr, version checks, and error-SVG detection. Its SVG
+importer accepts only Mermaid's visible geometry contract and ignores scripts,
+images, links, and external references. Imported colors still pass through the
+same StyleResolver and color map as Native output.
 
-Edges are created before nodes, keeping connectors behind entity shapes.
-Grouped outlines are created first as backgrounds. Edge labels are separate
-native text boxes because connector shapes cannot contain text.
+Native is the public default so an installed `mmdc` never changes geometry
+implicitly. `official` requests Mermaid geometry explicitly, while `auto`
+retains the opt-in runtime-detection behavior. Backend selection is independent
+from visual presets such as `style="official"`.
 
-The MVP uses routed straight segments rather than elbow connectors. Current
-python-pptx connector attachment and elbow adjustment APIs are experimental;
-explicit segments make generated geometry deterministic across LibreOffice and
-PowerPoint.
+Named continuous color maps are sampled after normal style resolution. Numeric
+positions independently control node fill, decision fill, node outline,
+connector, text, and container channels, so they override both Native and
+Official source colors consistently.
 
-## Proposed OSS phases
+`primary` and `secondary` are shorthand channels: primary supplies ordinary
+node fill, while secondary supplies decision fill, outlines, connectors, and
+container lines. If no text position is supplied, filled shapes choose white
+or dark text independently by relative luminance and contrast ratio.
 
-### Phase 1 — external package
+## Partial-model safety
 
-Stabilize the following through real usage:
+Every `MermaidDocument` stores:
 
-- Mermaid flowchart importer
-- JSON interchange importer
-- `Diagram` and `DiagramLayout`
-- deterministic layered layout
-- native python-pptx renderer
-- rendered-image regression fixtures
+- original source
+- typed model
+- diagnostics and raw unsupported statements
+- modeled status/rate
+- initial semantic fingerprint
 
-### Phase 2 — focused python-pptx contributions
+Official can compile an unchanged partial document from its original source.
+If Python code changes that partial semantic model, compilation fails with
+`PartialModelMutationError`; otherwise a serializer would necessarily discard
+the unknown statements. Themes do not alter the fingerprint.
 
-Contribute only low-level primitives proven necessary by the external package:
+## PowerPoint grouping
 
-- public line arrowhead API
-- public connector dash/line ending support
-- reliable connection-site and elbow adjustment API
-- group-shape authoring improvements
-- native SVG insertion if upstream scope accepts it
+The renderer creates backgrounds, connectors, nodes, labels, and notes in
+z-order, then moves them into one top-level `GroupShape` by default. Child
+shape proxies remain available through `CompileResult.element_shapes` and
+`element_parts`.
 
-Each contribution should be independently useful to python-pptx users and
-should not mention Mermaid in its public API.
+Compilation targets an existing `python-pptx` slide. A caller may therefore
+compile multiple independent diagrams into the same slide. Placement is
+resolved before rendering from exactly one of:
 
-### Phase 3 — optional thin integration
+- physical inch bounds `(left, top, width, height)`
+- a `full`, `left`, `right`, `top`, or `bottom` slide-relative preset
+- normalized slide-relative bounds `(x, y, width, height)` in the `0..1` range
 
-After the IR and renderer are stable, consider a small helper such as
-`ShapeTree.add_diagram(layout, ...)`. Keep parsing and layout outside
-python-pptx.
+Normalized coordinates use the slide's top-left as the origin and are
+converted from the actual presentation dimensions. The scene is uniformly
+scaled to contain within the resolved bounds, centered on the unused axis, and
+kept editable as a PowerPoint group. Layout geometry therefore defines the
+aspect ratio while the placement bounds define the maximum rendered size.
 
-## Compatibility policy
+## API and integration boundary
 
-- Python: 3.10+
-- python-pptx: 1.x
-- IR additions are backward compatible within 0.x where practical.
-- Breaking semantic changes require a changelog entry and a migration example.
-- Importers should preserve unsupported source details under `metadata` when
-  doing so is useful for round-tripping.
+Human-facing and tool-facing adapters share the same `render_mermaid` entry
+point. Known choices use literal types, related continuous color channels live
+in one `ColorMapStyle`/`colors` object, and physical versus normalized
+placement remains represented by separately named arguments to avoid unit
+ambiguity.
 
-## Next implementation candidates
+The core deliberately contains no vendor-specific function-tool wrappers.
+MCP servers, Codex plugins, and other agent adapters are separate integration
+layers. They bind a current `python-pptx` slide, invoke the typed API, and can
+return `CompileResult.to_dict()` as a JSON-safe summary.
 
-1. Golden-image regression tests with an explicit visual tolerance.
-2. Edge port selection and collision avoidance.
-3. Graphviz and ELK adapters behind optional dependencies.
-4. Native PowerPoint grouping once group creation preserves desired z-order.
-5. Separate semantic roots for sequence and ER diagrams.
+The tool's input schema belongs to the adapter and should be derived from its
+typed MCP handler rather than emitted by the core package. Operational
+instructions belong to an agent skill. See
+[MCP and Codex integration](mcp-integration.md) for the complete boundary and
+examples.
+
+The group and children are named with diagram family, semantic role, and
+semantic ID. Native Sequence actors and composite states, Official Sequence
+stick figures, and multi-part State final markers form nested editable groups
+inside the diagram group. Composite-state groups can themselves be nested;
+Flow subgraphs and Class namespaces remain visual containers.
+
+Curves unsupported by editable PowerPoint connectors are approximated by
+straight connector segments. Fonts and Bezier control points may differ
+slightly from Mermaid's browser rendering.
+
+Native graph connectors use a verified preset-specific PowerPoint connection
+site map; unsupported custom geometries retain their explicit boundary
+coordinates. Official SVG routes are not rebound because doing so would change
+Mermaid's geometry. Their marker-offset endpoints are snapped to the target
+boundary instead.
+
+Native node labels, and simple Official Flow/State node labels, live in the
+node AutoShape's own text frame. Edge labels and structured compartment text
+remain separate text boxes. Font and stroke metrics are fitted alongside scene
+geometry: inch-based Native metrics use the layout fit scale, while SVG pixel
+metrics use the SVG-to-inch scale converted to points. Role-specific clamps
+prevent unusably small or oversized text.
+
+## Extending the package
+
+A new declarative syntax should:
+
+1. Parse into an existing typed semantic root, or add a new sibling root when
+   its semantics differ.
+2. Provide `to_dict()` / `from_dict()` and a versioned schema update.
+3. Add a layout adapter that returns `DrawingScene`.
+4. Reuse StyleResolver and PythonPptxRenderer unchanged.
+
+A new geometry backend accepts a semantic model and returns `DrawingScene`.
+General SVG conversion does not belong in the Mermaid-specific importer.
+
+## Compatibility target
+
+- Python 3.10–3.13
+- `python-pptx` 1.x
+- Mermaid CLI 11.16.x for tested Official geometry
+- LibreOffice/OOXML as the automated rendering baseline
+
+Microsoft PowerPoint display identity and pixel-perfect browser equivalence
+are not guaranteed by `0.1.0a1`.

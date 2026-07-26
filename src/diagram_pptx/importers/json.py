@@ -6,13 +6,21 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from ..model import Diagram, DiagramEdge, DiagramGroup, DiagramNode, NodeShape
+from ..model import (
+    Diagram,
+    DiagramEdge,
+    DiagramGroup,
+    DiagramNode,
+    NodeShape,
+    SemanticDiagram,
+    diagram_from_dict,
+)
 
 
 class JsonImporter:
     """Import a diagram from a JSON string, bytes, or mapping."""
 
-    def parse(self, source: str | bytes | Mapping[str, Any]) -> Diagram:
+    def parse(self, source: str | bytes | Mapping[str, Any]) -> SemanticDiagram:
         data: Mapping[str, Any]
         if isinstance(source, Mapping):
             data = source
@@ -21,6 +29,12 @@ class JsonImporter:
             if not isinstance(parsed, Mapping):
                 raise ValueError("The JSON root must be an object")
             data = parsed
+
+        if "kind" in data or "schema_version" in data:
+            normalized = dict(data)
+            normalized.setdefault("kind", "flowchart")
+            normalized.setdefault("schema_version", 1)
+            return diagram_from_dict(normalized)
 
         nodes = [
             DiagramNode(

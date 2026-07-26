@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from statistics import mean
+from unicodedata import east_asian_width
 
 import networkx as nx
 
@@ -43,18 +44,13 @@ class LayeredLayout:
 
         ranks = self._assign_ranks(diagram)
         ordered_ranks = self._order_ranks(diagram, ranks)
-        dimensions = {node.id: self._node_size(node) for node in diagram.nodes}
+        dimensions = {node.id: self._node_size(node) for node in diagram.nodes.values()}
         positioned, primary_extent, secondary_extent = self._place_nodes(
             diagram, ordered_ranks, dimensions
         )
         node_map = {node.node.id: node for node in positioned}
-        routed = [
-            RoutedEdge(
-                edge=edge,
-                points=self._route_edge(edge.source, edge.target, node_map, diagram.direction),
-            )
-            for edge in diagram.edges
-        ]
+        routed = self._route_edges(diagram, node_map)
+        self._offset_reciprocal_edges(routed, diagram.direction)
         groups = self._position_groups(diagram, node_map)
         width, height = self._physical_extents(diagram.direction, primary_extent, secondary_extent)
         return DiagramLayout(
@@ -69,50 +65,34 @@ class LayeredLayout:
 
     @staticmethod
     def _assign_ranks(diagram: Diagram) -> dict[str, int]:
+        # Build a deterministic acyclic backbone in statement order. Edges
+        # that would close a cycle are treated as return edges by the router,
+        # rather than forcing every member of a large SCC onto its own rank.
+        # This keeps siblings such as decision branches on the same rank.
         graph = nx.DiGraph()
-        graph.add_nodes_from(node.id for node in diagram.nodes)
-        graph.add_edges_from((edge.source, edge.target) for edge in diagram.edges)
+        graph.add_nodes_from(diagram.nodes)
+        for edge in diagram.edges:
+            if edge.source == edge.target:
+                continue
+            if nx.has_path(graph, edge.target, edge.source):
+                continue
+            graph.add_edge(edge.source, edge.target)
 
-        components = list(nx.strongly_connected_components(graph))
-        component_by_node = {
-            node_id: component_index
-            for component_index, component in enumerate(components)
-            for node_id in component
-        }
-        condensed = nx.DiGraph()
-        condensed.add_nodes_from(range(len(components)))
-        for source, target in graph.edges:
-            source_component = component_by_node[source]
-            target_component = component_by_node[target]
-            if source_component != target_component:
-                condensed.add_edge(source_component, target_component)
-
-        component_rank: dict[int, int] = {}
-        for component in nx.topological_sort(condensed):
-            predecessors = list(condensed.predecessors(component))
-            component_rank[component] = (
-                max(component_rank[pred] + len(components[pred]) for pred in predecessors)
+        rank_by_node: dict[str, int] = {}
+        for node_id in nx.topological_sort(graph):
+            predecessors = list(graph.predecessors(node_id))
+            rank_by_node[node_id] = (
+                max(rank_by_node[predecessor] + 1 for predecessor in predecessors)
                 if predecessors
                 else 0
             )
-
-        input_index = {node.id: index for index, node in enumerate(diagram.nodes)}
-        rank_by_node: dict[str, int] = {}
-        for component_index, component in enumerate(components):
-            base_rank = component_rank[component_index]
-            # A cycle cannot have a true layered ordering. Spread its members
-            # deterministically over adjacent ranks to keep the drawing legible.
-            for cycle_offset, node_id in enumerate(
-                sorted(component, key=lambda item: input_index[item])
-            ):
-                rank_by_node[node_id] = base_rank + cycle_offset
         return rank_by_node
 
     def _order_ranks(self, diagram: Diagram, ranks: dict[str, int]) -> dict[int, list[str]]:
-        input_index = {node.id: index for index, node in enumerate(diagram.nodes)}
+        input_index = {node_id: index for index, node_id in enumerate(diagram.nodes)}
         by_rank: dict[int, list[str]] = defaultdict(list)
-        for node in diagram.nodes:
-            by_rank[ranks[node.id]].append(node.id)
+        for node_id in diagram.nodes:
+            by_rank[ranks[node_id]].append(node_id)
         for rank_nodes in by_rank.values():
             rank_nodes.sort(key=input_index.__getitem__)
 
@@ -237,12 +217,15 @@ class LayeredLayout:
 
     def _node_size(self, node: DiagramNode) -> tuple[float, float]:
         lines = node.label.splitlines() or [""]
-        longest = max(len(line) for line in lines)
+        longest = max(self._text_columns(line) for line in lines)
         width = min(self.max_node_width, max(self.min_node_width, 1.05 + longest * 0.105))
         height = max(self.min_node_height, 0.58 + len(lines) * 0.28)
         if node.shape.value in {"diamond", "hexagon"}:
-            width = max(width, 2.1)
-            height = max(height, 1.05)
+            # Only the middle portion of these shapes is useful for text.
+            # Reserve extra horizontal and vertical room so explicit line
+            # breaks do not turn CJK labels into one-character columns.
+            width = min(6.0, max(width * 1.6, 3.0))
+            height = max(height * 1.55, 1.6)
         elif node.shape.value == "ellipse":
             # Curved sides reduce the usable text area more than the bounding
             # box suggests in both PowerPoint and LibreOffice.
@@ -251,6 +234,80 @@ class LayeredLayout:
         width = float(node.metadata.get("width", width))
         height = float(node.metadata.get("height", height))
         return width, height
+
+    @staticmethod
+    def _text_columns(text: str) -> int:
+        """Return an approximate display width, accounting for CJK glyphs."""
+
+        return sum(2 if east_asian_width(character) in {"W", "F", "A"} else 1 for character in text)
+
+    def _route_edges(
+        self,
+        diagram: Diagram,
+        nodes: dict[str, PositionedNode],
+    ) -> list[RoutedEdge]:
+        horizontal = diagram.direction in {"LR", "RL"}
+        left = min(node.x for node in nodes.values())
+        right = max(node.x + node.width for node in nodes.values())
+        top = min(node.y for node in nodes.values())
+        bottom = max(node.y + node.height for node in nodes.values())
+        backward_index = 0
+        routed: list[RoutedEdge] = []
+
+        for edge in diagram.edges:
+            source = nodes[edge.source]
+            target = nodes[edge.target]
+            is_backward = (
+                target.center.x < source.center.x
+                if horizontal
+                else target.center.y < source.center.y
+            )
+            if edge.source != edge.target and is_backward:
+                side = -1 if backward_index % 2 == 0 else 1
+                lane = backward_index // 2
+                lane_offset = 0.6 + lane * 0.42
+                if horizontal:
+                    lane_y = top - lane_offset if side < 0 else bottom + lane_offset
+                    start = Point(
+                        source.center.x,
+                        source.y if side < 0 else source.y + source.height,
+                    )
+                    end = Point(
+                        target.center.x,
+                        target.y if side < 0 else target.y + target.height,
+                    )
+                    points = [
+                        start,
+                        Point(start.x, lane_y),
+                        Point(end.x, lane_y),
+                        end,
+                    ]
+                else:
+                    lane_x = left - lane_offset if side < 0 else right + lane_offset
+                    start = Point(
+                        source.x if side < 0 else source.x + source.width,
+                        source.center.y,
+                    )
+                    end = Point(
+                        target.x if side < 0 else target.x + target.width,
+                        target.center.y,
+                    )
+                    points = [
+                        start,
+                        Point(lane_x, start.y),
+                        Point(lane_x, end.y),
+                        end,
+                    ]
+                backward_index += 1
+            else:
+                points = self._route_edge(
+                    edge.source,
+                    edge.target,
+                    nodes,
+                    diagram.direction,
+                )
+            routed.append(RoutedEdge(edge=edge, points=self._deduplicate_points(points)))
+        return routed
 
     @staticmethod
     def _route_edge(
@@ -304,6 +361,24 @@ class LayeredLayout:
         return LayeredLayout._deduplicate_points(points)
 
     @staticmethod
+    def _offset_reciprocal_edges(
+        routed: list[RoutedEdge],
+        direction: str,
+    ) -> None:
+        endpoint_pairs = {(item.edge.source, item.edge.target) for item in routed}
+        offset = 0.18
+        horizontal = direction in {"LR", "RL"}
+        for item in routed:
+            pair = (item.edge.target, item.edge.source)
+            if item.edge.source == item.edge.target or pair not in endpoint_pairs:
+                continue
+            sign = -1 if item.edge.source < item.edge.target else 1
+            if horizontal:
+                item.points = [Point(point.x, point.y + sign * offset) for point in item.points]
+            else:
+                item.points = [Point(point.x + sign * offset, point.y) for point in item.points]
+
+    @staticmethod
     def _deduplicate_points(points: list[Point]) -> list[Point]:
         result: list[Point] = []
         for point in points:
@@ -315,7 +390,7 @@ class LayeredLayout:
         self, diagram: Diagram, nodes: dict[str, PositionedNode]
     ) -> list[PositionedGroup]:
         positioned: list[PositionedGroup] = []
-        for group in diagram.groups:
+        for group in diagram.groups.values():
             members = [nodes[node_id] for node_id in group.node_ids if node_id in nodes]
             if not members:
                 continue
@@ -326,7 +401,7 @@ class LayeredLayout:
             positioned.append(PositionedGroup(group, left, top, right - left, bottom - top))
         # Parents first so nested groups paint on top in predictable order.
         depth_by_id: dict[str, int] = {}
-        group_by_id = {group.id: group for group in diagram.groups}
+        group_by_id = diagram.groups
 
         def depth(group_id: str) -> int:
             if group_id not in depth_by_id:

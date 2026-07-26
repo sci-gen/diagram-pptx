@@ -14,5 +14,5 @@ def test_imports_dict_interchange_format() -> None:
         }
     )
     assert diagram.direction == "TB"
-    assert diagram.nodes[1].shape is NodeShape.DIAMOND
+    assert diagram.nodes["b"].shape is NodeShape.DIAMOND
     assert diagram.edges[0].label == "next"

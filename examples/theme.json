@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "palette": {
+    "brand": "#0057B8",
+    "surface": "#F6F8FA"
+  },
+  "roles": {
+    "node.default": {
+      "fill": "surface",
+      "line": "brand",
+      "text": "text1"
+    }
+  },
+  "classes": {
+    "storage": {
+      "fill": "brand",
+      "text": "#FFFFFF"
+    }
+  },
+  "ids": {
+    "critical": {
+      "line_width": 2.5
+    }
+  },
+  "color_map": {
+    "#FF0000": "#0057B8"
+  }
+}

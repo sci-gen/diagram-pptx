@@ -19,7 +19,7 @@ def test_parses_flowchart_semantics() -> None:
     diagram = MermaidFlowchartImporter().parse(SOURCE)
 
     assert diagram.direction == "LR"
-    assert [node.id for node in diagram.nodes] == ["A", "B", "C", "D", "E"]
+    assert list(diagram.nodes) == ["A", "B", "C", "D", "E"]
     nodes = diagram.node_map()
     assert nodes["A"].shape is NodeShape.RECTANGLE
     assert nodes["B"].shape is NodeShape.DIAMOND
@@ -34,7 +34,7 @@ def test_parses_flowchart_semantics() -> None:
     assert diagram.edges[1].label == "Yes"
     assert diagram.edges[2].label == "No"
     assert diagram.edges[2].style["dash"] == "dash"
-    assert diagram.groups[0].node_ids == ["C", "E"]
+    assert diagram.groups["Ops"].node_ids == ["C", "E"]
 
 
 def test_supports_chained_edges_and_semicolons() -> None:

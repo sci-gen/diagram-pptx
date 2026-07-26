@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sci-gen/diagram-pptx/schemas/theme-v1.json",
+  "title": "diagram-pptx theme",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "palette": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "defaults": { "$ref": "#/$defs/style" },
+    "roles": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/style" }
+    },
+    "classes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/style" }
+    },
+    "ids": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/style" }
+    },
+    "color_map": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "style": {
+      "type": "object",
+      "properties": {
+        "fill": { "type": ["string", "null"] },
+        "line": { "type": ["string", "null"] },
+        "text": { "type": ["string", "null"] },
+        "line_width": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "dash": { "type": ["string", "null"] },
+        "font_family": { "type": ["string", "null"] },
+        "font_size": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+        "bold": { "type": ["boolean", "null"] },
+        "italic": { "type": ["boolean", "null"] },
+        "opacity": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "label_fill": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  }
+}

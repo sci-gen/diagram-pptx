@@ -16,4 +16,4 @@ libreoffice \
   "$input"
 
 pdf="$output_dir/$(basename "${input%.pptx}").pdf"
-pdftoppm -png -r 144 -singlefile "$pdf" "$output_dir/slide-1"
+pdftoppm -png -r 144 "$pdf" "$output_dir/slide"

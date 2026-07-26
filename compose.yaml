@@ -1,12 +1,22 @@
 services:
   test:
+    image: diagram-pptx-dev
     build:
       context: .
     command: pytest --cov=diagram_pptx --cov-report=term-missing
     volumes:
       - .:/workspace
 
+  official-test:
+    image: diagram-pptx-dev
+    build:
+      context: .
+    command: pytest -m official
+    volumes:
+      - .:/workspace
+
   example:
+    image: diagram-pptx-dev
     build:
       context: .
     command:
@@ -14,8 +24,19 @@ services:
       - -lc
       - >-
         mkdir -p artifacts &&
-        diagram-pptx render examples/flowchart.mmd artifacts/flowchart.pptx
-        --title "Editable native PowerPoint flowchart" &&
-        bash scripts/render_pptx.sh artifacts/flowchart.pptx artifacts/rendered
+        python examples/build_gallery.py
+        artifacts/diagram-gallery.pptx native &&
+        bash scripts/render_pptx.sh
+        artifacts/diagram-gallery.pptx artifacts/rendered &&
+        if [ -d tests/golden ]; then
+          python scripts/compare_golden.py artifacts/rendered tests/golden;
+        fi &&
+        python examples/build_gallery.py
+        artifacts/diagram-gallery-official.pptx official &&
+        bash scripts/render_pptx.sh
+        artifacts/diagram-gallery-official.pptx artifacts/rendered-official &&
+        if [ -d tests/golden-official ]; then
+          python scripts/compare_golden.py artifacts/rendered-official tests/golden-official;
+        fi
     volumes:
       - .:/workspace

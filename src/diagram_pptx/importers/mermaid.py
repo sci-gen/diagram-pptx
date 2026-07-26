@@ -11,20 +11,18 @@ import shlex
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..diagnostics import MermaidParseError
 from ..model import Diagram, DiagramEdge, DiagramGroup, DiagramNode, NodeShape
 
 _HEADER_RE = re.compile(r"^(?:flowchart|graph)\s+(LR|RL|TB|TD|BT)\s*$", re.IGNORECASE)
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*")
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_](?:[A-Za-z0-9_]|-(?![-.=>]))*")
 _EDGE_TOKEN_RE = re.compile(r"\s*(-->|---|==>|-\.->)\s*")
 _PIPE_LABEL_RE = re.compile(r"^\|([^|]*)\|\s*")
 _CLASS_DEF_RE = re.compile(r"^classDef\s+([A-Za-z_][\w-]*)\s+(.+)$")
 _CLASS_RE = re.compile(r"^class\s+([\w,-]+)\s+([A-Za-z_][\w-]*)\s*$")
 _STYLE_RE = re.compile(r"^style\s+([A-Za-z_][\w-]*)\s+(.+)$")
+_LINK_STYLE_RE = re.compile(r"^linkStyle\s+([\d,\s]+)\s+(.+)$", re.IGNORECASE)
 _SUBGRAPH_RE = re.compile(r"^subgraph\s+(.+)$", re.IGNORECASE)
-
-
-class MermaidParseError(ValueError):
-    """Raised when input is outside the supported flowchart subset."""
 
 
 @dataclass(slots=True)
@@ -33,6 +31,7 @@ class _GroupBuilder:
     label: str
     parent_id: str | None
     node_ids: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MermaidFlowchartImporter:
@@ -47,7 +46,7 @@ class MermaidFlowchartImporter:
     - ``classDef``, ``class``, and per-node ``style``
     """
 
-    def parse(self, source: str) -> Diagram:
+    def parse(self, source: str, *, tolerant: bool = False) -> Diagram:
         if not isinstance(source, str):
             raise TypeError("Mermaid source must be text")
 
@@ -69,6 +68,8 @@ class MermaidFlowchartImporter:
         class_defs: dict[str, dict[str, Any]] = {}
         class_memberships: list[tuple[list[str], str]] = []
         node_styles: list[tuple[str, dict[str, Any]]] = []
+        edge_styles: list[tuple[list[int], dict[str, Any]]] = []
+        unsupported_statements: list[str] = []
 
         for line_number, statement in enumerate(lines[1:], start=2):
             if statement.lower() == "end":
@@ -108,13 +109,34 @@ class MermaidFlowchartImporter:
                 )
                 continue
 
-            if statement.lower().startswith(("click ", "linkStyle ", "direction ")):
-                # Interaction, global link styling, and nested direction do not alter the IR yet.
+            link_style = _LINK_STYLE_RE.match(statement)
+            if link_style:
+                edge_styles.append(
+                    (
+                        [int(item.strip()) for item in link_style.group(1).split(",")],
+                        self._parse_style(link_style.group(2)),
+                    )
+                )
+                continue
+
+            if statement.lower().startswith("direction "):
+                if group_stack:
+                    group_builders[group_stack[-1]].metadata["direction"] = (
+                        statement.split(maxsplit=1)[1].upper().replace("TD", "TB")
+                    )
+                continue
+
+            if statement.lower().startswith("click "):
+                if tolerant:
+                    unsupported_statements.append(statement)
                 continue
 
             try:
                 parsed_nodes, parsed_edges = self._parse_graph_statement(statement)
             except MermaidParseError as exc:
+                if tolerant:
+                    unsupported_statements.append(statement)
+                    continue
                 raise MermaidParseError(f"Line {line_number}: {exc}") from exc
 
             current_group = group_stack[-1] if group_stack else None
@@ -136,6 +158,7 @@ class MermaidFlowchartImporter:
                 if node_id not in nodes:
                     nodes[node_id] = DiagramNode(node_id, node_id)
                 nodes[node_id].style.update(class_defs[class_name])
+                nodes[node_id].classes.add(class_name)
                 nodes[node_id].metadata.setdefault("classes", []).append(class_name)
 
         for node_id, style in node_styles:
@@ -143,12 +166,19 @@ class MermaidFlowchartImporter:
                 nodes[node_id] = DiagramNode(node_id, node_id)
             nodes[node_id].style.update(style)
 
+        for edge_indexes, style in edge_styles:
+            for edge_index in edge_indexes:
+                if edge_index < 0 or edge_index >= len(edges):
+                    raise MermaidParseError(f"linkStyle references unknown edge {edge_index}")
+                edges[edge_index].style.update(style)
+
         groups = [
             DiagramGroup(
                 id=builder.id,
                 label=builder.label,
                 node_ids=builder.node_ids,
                 parent_id=builder.parent_id,
+                metadata=builder.metadata,
             )
             for builder in group_builders.values()
         ]
@@ -157,7 +187,11 @@ class MermaidFlowchartImporter:
             edges=edges,
             groups=groups,
             direction=direction,
-            metadata={"source_format": "mermaid-flowchart"},
+            metadata={
+                "source_format": "mermaid-flowchart",
+                "class_defs": class_defs,
+                "unsupported_statements": unsupported_statements,
+            },
         )
         diagram.validate()
         return diagram
@@ -222,7 +256,7 @@ class MermaidFlowchartImporter:
             if token == "-.->":
                 style["dash"] = "dash"
             elif token == "==>":
-                style["width"] = 2.5
+                style["line_width"] = 2.5
             edges.append(
                 DiagramEdge(
                     source=nodes[-2].id,
@@ -230,6 +264,7 @@ class MermaidFlowchartImporter:
                     label=label,
                     directed=token != "---",
                     style=style,
+                    metadata={"token": token},
                 )
             )
         return nodes, edges
@@ -255,6 +290,8 @@ class MermaidFlowchartImporter:
             ("([", "])", NodeShape.STADIUM),
             ("[[", "]]", NodeShape.SUBPROCESS),
             ("{{", "}}", NodeShape.HEXAGON),
+            ("[(", ")]", NodeShape.CYLINDER),
+            ("[/", "/]", NodeShape.PARALLELOGRAM),
             ("[", "]", NodeShape.RECTANGLE),
             ("(", ")", NodeShape.ROUNDED_RECTANGLE),
             ("{", "}", NodeShape.DIAMOND),
