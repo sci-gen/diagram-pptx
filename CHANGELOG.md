@@ -43,6 +43,9 @@ Versioning.
   tspans, inherited presentation attributes, and selector-aware CSS styling.
 - Official Radar output now enlarges axis labels, legends, and chart titles
   for presentation-scale readability.
+- Shape labels now use adaptive typography with up to two-thirds of the
+  available height, constrained by text width, line count, neighboring labels,
+  and shape-specific padding.
 
 ## [0.1.0a1] - 2026-07-26
 

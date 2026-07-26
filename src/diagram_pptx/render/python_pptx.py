@@ -452,7 +452,7 @@ class PythonPptxRenderer:
                 default_size=15.0,
                 font_scale=transform.font_scale,
                 min_size=12.0,
-                max_size=28.0,
+                max_size=40.0,
             )
         return shape
 
@@ -487,7 +487,7 @@ class PythonPptxRenderer:
                 default_size=15.0,
                 font_scale=transform.font_scale,
                 min_size=12.0,
-                max_size=28.0,
+                max_size=40.0,
             )
         return shape
 
@@ -607,7 +607,7 @@ class PythonPptxRenderer:
             align=align,
             font_scale=transform.font_scale,
             min_size=9.0,
-            max_size=24.0,
+            max_size=40.0,
         )
         shape.text_frame.margin_left = 0
         shape.text_frame.margin_right = 0

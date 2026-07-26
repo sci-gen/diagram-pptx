@@ -207,7 +207,7 @@ def test_native_font_size_scales_with_fitted_diagram() -> None:
     )
 
     run = result.node_shapes["A"].text_frame.paragraphs[0].runs[0]
-    assert 15.0 < run.font.size.pt <= 28.0
+    assert 15.0 < run.font.size.pt <= 40.0
 
 
 def test_native_sequence_fragment_uses_square_frame() -> None:

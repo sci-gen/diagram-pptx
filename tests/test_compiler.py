@@ -9,6 +9,7 @@ from pptx.util import Inches
 
 from diagram_pptx import (
     PartialModelMutationError,
+    build_scene,
     compile_diagram,
     parse_mermaid,
     render_mermaid,
@@ -16,6 +17,18 @@ from diagram_pptx import (
     sample_colormap,
 )
 from diagram_pptx.scene import SceneConnector, SceneShape
+
+
+def test_shape_text_can_use_up_to_two_thirds_of_single_line_node_height() -> None:
+    result = build_scene(parse_mermaid("flowchart LR\nA[A]"), backend="native")
+    node = next(
+        item
+        for item in result.scene.elements
+        if isinstance(item, SceneShape) and item.semantic_id == "A"
+    )
+
+    assert node.style.font_size == 40
+    assert node.style.font_size <= node.box.height * 72 * (2 / 3)
 
 
 def test_partial_model_mutation_is_rejected() -> None:

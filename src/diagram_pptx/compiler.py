@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Literal, TypedDict
+from unicodedata import east_asian_width
 
 from pptx.slide import Slide
 
@@ -18,7 +19,7 @@ from .layout.native import layout_native
 from .mermaid import parse_mermaid, serialize_mermaid
 from .model import MermaidDocument, MermaidSourceDiagram, SemanticDiagram
 from .render.python_pptx import PythonPptxRenderer, RenderResult
-from .scene import DrawingScene, SceneConnector, SceneContainer, SceneShape, SceneText
+from .scene import Box, DrawingScene, SceneConnector, SceneContainer, SceneShape, SceneText
 from .styles import (
     DEFAULT_THEME,
     ColorMapStyle,
@@ -287,6 +288,7 @@ def build_scene(
         colormap_style,
         label_background=label_background,
     )
+    _improve_shape_label_typography(scene)
     return SceneResult(
         backend_used=backend_used.value,
         diagnostics=diagnostics,
@@ -606,6 +608,168 @@ def _resolve_scene_styles(
                 element.style.text = contrast_text_color(normalized_label_fill)
         if colormap is not None:
             _apply_colormap_style(element, colormap)
+
+
+def _improve_shape_label_typography(scene: DrawingScene) -> None:
+    """Enlarge labels that visually belong to a shape while preserving fit."""
+
+    font_units = 1.0 if scene.metadata.get("coordinate_units") == "svg_px" else 72.0
+    node_text_classes = {
+        "actor-box",
+        "block",
+        "branchLabel",
+        "em-box",
+        "flowchart-label",
+        "items",
+        "journey-section",
+        "mindmap-node",
+        "node",
+        "packetLabel",
+        "participant-label",
+        "person-man",
+        "railroad-nonterminal",
+        "railroad-terminal",
+        "slice",
+        "task",
+        "timeline-node",
+        "treemapLabel",
+        "treemapValue",
+        "venn-area",
+    }
+    shapes = [
+        item
+        for item in scene.elements
+        if isinstance(item, SceneShape) and item.box.width > 0.05 and item.box.height > 0.05
+    ]
+
+    for shape in shapes:
+        if not shape.text:
+            continue
+        target = _shape_label_font_size(
+            shape.text,
+            shape.box,
+            font_units=font_units,
+            shape=shape.shape,
+        )
+        current = shape.style.font_size or 15.0
+        if target > current:
+            shape.style.font_size = target
+
+    assignments: dict[int, tuple[SceneShape, list[SceneText]]] = {}
+    for text_item in (
+        item
+        for item in scene.elements
+        if isinstance(item, SceneText)
+        and item.role != "edge.label"
+        and "edgeLabel" not in item.classes
+        and "messageText" not in item.classes
+        and "sequenceNumber" not in item.classes
+        and not item.classes.isdisjoint(node_text_classes)
+    ):
+        center = text_item.box.center
+        candidates = [
+            shape
+            for shape in shapes
+            if shape.box.x <= center.x <= shape.box.x + shape.box.width
+            and shape.box.y <= center.y <= shape.box.y + shape.box.height
+        ]
+        if not candidates:
+            continue
+        shape = min(candidates, key=lambda item: item.box.width * item.box.height)
+        height_ratio = shape.box.height / max(text_item.box.height, 1e-9)
+        if height_ratio > 12.0 and "slice" not in text_item.classes:
+            continue
+        entry = assignments.setdefault(id(shape), (shape, []))
+        entry[1].append(text_item)
+
+    for shape, text_items in assignments.values():
+        _resize_contained_shape_labels(shape, text_items, font_units=font_units)
+    scene.recompute_extents()
+
+
+def _resize_contained_shape_labels(
+    shape: SceneShape,
+    text_items: list[SceneText],
+    *,
+    font_units: float,
+) -> None:
+    unique_centers = sorted({round(item.box.center.y, 6) for item in text_items})
+    if len(unique_centers) != len(text_items):
+        # Some Mermaid families emit an SVG text fallback under a foreignObject.
+        # Leave coincident labels unchanged instead of enlarging both copies.
+        return
+    total_lines = sum(max(1, len(item.text.splitlines())) for item in text_items)
+    shape_height = shape.box.height * font_units
+    if total_lines == 1:
+        height_limit = shape_height * (2.0 / 3.0)
+    else:
+        height_limit = shape_height * (2.0 / 3.0) / (1.2 * total_lines)
+    if len(unique_centers) > 1:
+        closest_gap = min(
+            second - first
+            for first, second in zip(unique_centers, unique_centers[1:], strict=False)
+        )
+        height_limit = min(height_limit, closest_gap * font_units * 0.75)
+
+    for item in text_items:
+        width_limit = _text_width_limit(
+            item.text,
+            shape.box.width * font_units,
+            shape=shape.shape,
+        )
+        target = min(40.0, height_limit, width_limit)
+        current = item.style.font_size or 12.0
+        if target <= current:
+            continue
+        _resize_text_box(item, target / current)
+        item.style.font_size = target
+
+
+def _shape_label_font_size(
+    text: str,
+    box: Box,
+    *,
+    font_units: float,
+    shape: str,
+) -> float:
+    lines = max(1, len(text.splitlines()))
+    height = box.height * font_units
+    height_limit = height * (2.0 / 3.0) if lines == 1 else height * (2.0 / 3.0) / (1.2 * lines)
+    width_limit = _text_width_limit(text, box.width * font_units, shape=shape)
+    return min(40.0, height_limit, width_limit)
+
+
+def _text_width_limit(text: str, width: float, *, shape: str) -> float:
+    padding_ratio = {
+        "diamond": 0.45,
+        "hexagon": 0.52,
+        "stadium": 0.65,
+        "cylinder": 0.68,
+        "rounded_rectangle": 0.72,
+    }.get(shape, 0.72)
+    longest = max(text.splitlines() or [""])
+    em_width = sum(
+        1.0 if east_asian_width(character) in {"W", "F"} else 0.72 for character in longest
+    )
+    return width * padding_ratio / max(em_width, 0.5)
+
+
+def _resize_text_box(item: SceneText, scale: float) -> None:
+    old_box = item.box
+    width = old_box.width * scale
+    height = old_box.height * scale
+    if item.align == "left":
+        left = old_box.x
+    elif item.align == "right":
+        left = old_box.x + old_box.width - width
+    else:
+        left = old_box.center.x - width / 2
+    item.box = Box(
+        left,
+        old_box.center.y - height / 2,
+        width,
+        height,
+    )
 
 
 def _coerce_colormap_style(
