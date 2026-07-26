@@ -10,7 +10,7 @@ from diagram_pptx.cli import _package_version, main
 
 def test_public_versions_match_distribution_metadata() -> None:
     expected = version("diagram-pptx")
-    assert expected == "0.1.0b1"
+    assert expected == "0.1.0b2"
     assert diagram_pptx.__version__ == expected
     assert _package_version() == expected
 
