@@ -17,8 +17,8 @@ SVG・PNG・JPEGへ保存することもできます。
 
 <p align="center">
   <img
-    src="https://raw.githubusercontent.com/sci-gen/diagram-pptx/main/docs/assets/readme/checkout-sequence.png"
-    alt="diagram-pptxで生成した編集可能なチェックアウトのシーケンス図"
+    src="https://raw.githubusercontent.com/sci-gen/diagram-pptx/main/docs/assets/readme/diagram-pptx-gallery.png"
+    alt="diagram-pptxで生成したFlow・Sequence・Class・Stateの図"
     width="100%"
   >
 </p>
