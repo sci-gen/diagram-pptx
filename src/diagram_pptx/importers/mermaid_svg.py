@@ -7,7 +7,8 @@ import xml.etree.ElementTree as ET
 from collections.abc import Iterable
 from dataclasses import dataclass
 from html import unescape
-from math import atan2, ceil, cos, pi, radians, sin, sqrt
+from math import atan2, ceil, cos, degrees, hypot, pi, radians, sin, sqrt
+from unicodedata import east_asian_width
 
 from ..scene import (
     Box,
@@ -24,6 +25,25 @@ _NUMBER_RE = re.compile(r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 _PATH_TOKEN_RE = re.compile(r"[AaCcHhLlMmQqSsTtVvZz]|-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
 _TRANSFORM_RE = re.compile(r"(matrix|translate|scale|rotate)\s*\(([^)]*)\)")
 _CSS_RULE_RE = re.compile(r"([^{}]+)\{([^{}]+)\}")
+_INHERITED_STYLE_NAMES = frozenset(
+    {
+        "fill",
+        "fill-opacity",
+        "stroke",
+        "stroke-opacity",
+        "stroke-width",
+        "stroke-dasharray",
+        "color",
+        "font-family",
+        "font-size",
+        "font-style",
+        "font-weight",
+        "text-anchor",
+        "dominant-baseline",
+        "visibility",
+        "opacity",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +70,21 @@ class _Affine:
             e=other.a * self.e + other.c * self.f + other.e,
             f=other.b * self.e + other.d * self.f + other.f,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class _CssRule:
+    required_classes: frozenset[str]
+    target_tag: str | None
+    declarations: dict[str, str]
+    specificity: tuple[int, int, int]
+    order: int
+
+
+@dataclass(slots=True)
+class _Stylesheet:
+    root: dict[str, str]
+    rules: list[_CssRule]
 
 
 def import_mermaid_svg(svg: str | bytes, *, kind: str) -> DrawingScene:
@@ -93,6 +128,7 @@ def import_mermaid_svg(svg: str | bytes, *, kind: str) -> DrawingScene:
             transform=root_transform,
             inherited_id=None,
             inherited_classes=set(),
+            inherited_style={},
             counter=counter,
         )
     _mark_actor_composites(scene)
@@ -109,23 +145,59 @@ def _walk(
     element: ET.Element,
     scene: DrawingScene,
     *,
-    css: dict[str, dict[str, str]],
+    css: _Stylesheet,
     paint_servers: dict[str, str],
     transform: _Affine,
     inherited_id: str | None,
     inherited_classes: set[str],
+    inherited_style: dict[str, str],
     counter: list[int],
 ) -> None:
     tag = _local(element.tag)
-    if tag in {"defs", "style", "script", "marker", "image", "use", "a", "title", "desc"}:
+    if tag in {
+        "defs",
+        "style",
+        "script",
+        "marker",
+        "image",
+        "use",
+        "a",
+        "title",
+        "desc",
+        "clipPath",
+        "mask",
+        "pattern",
+        "symbol",
+    }:
         return
     classes = inherited_classes | set(element.get("class", "").split())
+    declarations = _element_declarations(element, classes, css, inherited_style)
+    if declarations.get("display", "").lower() == "none" or declarations.get(
+        "visibility", ""
+    ).lower() in {"hidden", "collapse"}:
+        return
     semantic_id = _semantic_id(
         element.get("id") or element.get("data-id") or inherited_id,
         classes,
     )
-    current_transform = transform.then(_parse_transform(element.get("transform", "")))
-    style = _element_style(element, classes, css, paint_servers)
+    css_transform = declarations.get("transform")
+    if css_transform and css_transform.strip().lower() != "none":
+        local_transform = _transform_with_origin(
+            css_transform,
+            declarations.get("transform-origin") or element.get("transform-origin"),
+        )
+    else:
+        local_transform = _parse_transform(element.get("transform", ""))
+    if tag == "svg":
+        local_transform = _svg_viewport_transform(element).then(local_transform)
+    current_transform = local_transform.then(transform)
+    style = _element_style(
+        element,
+        classes,
+        css,
+        paint_servers,
+        inherited_style,
+    )
     element_id = f"svg-{counter[0]}"
     counter[0] += 1
     role = _role(classes, tag)
@@ -142,11 +214,23 @@ def _walk(
         )
         text = _clean_text(" ".join(element.itertext()))
         if text:
+            style = _foreign_object_text_style(
+                element,
+                classes,
+                css,
+                paint_servers,
+                inherited_style,
+            )
+            if style.font_size is None:
+                style.font_size = 16.0
             text_role = "edge.label" if "edgeLabel" in classes else "text.default"
             if text_role == "edge.label":
                 # The label background belongs to the XHTML child in Mermaid
                 # SVG, not to the foreignObject itself.  Let the semantic
                 # edge-label theme provide the PowerPoint fill.
+                style.fill = None
+            else:
+                style.text = style.text or style.fill
                 style.fill = None
             scene.add(
                 SceneText(
@@ -155,7 +239,7 @@ def _walk(
                     role=text_role,
                     classes=classes,
                     style=style,
-                    z_index=30,
+                    z_index=_svg_order(element_id),
                     box=box,
                     text=text,
                 )
@@ -169,7 +253,7 @@ def _walk(
         # rectangles.
         if raw_width <= 0 or raw_height <= 0:
             return
-        box = _transformed_box(
+        box, rotation = _transformed_primitive_box(
             Box(
                 _length(element.get("x"), 0.0),
                 _length(element.get("y"), 0.0),
@@ -179,21 +263,50 @@ def _walk(
             current_transform,
         )
         if box.width > 0 and box.height > 0 and not _invisible(style):
-            shape = (
-                "rounded_rectangle"
-                if _length(element.get("rx"), 0.0) > 0 or _length(element.get("ry"), 0.0) > 0
-                else "rectangle"
+            rx = _length(element.get("rx"), 0.0)
+            ry = _length(element.get("ry"), rx)
+            shape = "rounded_rectangle" if rx > 0 or ry > 0 else "rectangle"
+            added = _add_shape(
+                scene,
+                element_id,
+                semantic_id,
+                role,
+                classes,
+                style,
+                box,
+                shape,
             )
-            _add_shape(scene, element_id, semantic_id, role, classes, style, box, shape)
+            if isinstance(added, SceneShape) and shape == "rounded_rectangle":
+                radius = max(rx, ry)
+                added.metadata["corner_radius_ratio"] = min(
+                    0.5,
+                    radius / max(min(raw_width, raw_height), 1e-9),
+                )
+            if isinstance(added, SceneShape):
+                added.rotation = rotation
         return
     if tag in {"circle", "ellipse"}:
         cx = _length(element.get("cx"), 0.0)
         cy = _length(element.get("cy"), 0.0)
         rx = _length(element.get("r" if tag == "circle" else "rx"), 0.0)
         ry = _length(element.get("r" if tag == "circle" else "ry"), rx)
-        box = _transformed_box(Box(cx - rx, cy - ry, 2 * rx, 2 * ry), current_transform)
+        box, rotation = _transformed_primitive_box(
+            Box(cx - rx, cy - ry, 2 * rx, 2 * ry),
+            current_transform,
+        )
         if box.width > 0 and box.height > 0 and not _invisible(style):
-            _add_shape(scene, element_id, semantic_id, role, classes, style, box, "ellipse")
+            added = _add_shape(
+                scene,
+                element_id,
+                semantic_id,
+                role,
+                classes,
+                style,
+                box,
+                "ellipse",
+            )
+            if isinstance(added, SceneShape):
+                added.rotation = rotation
         return
     if tag in {"polygon", "polyline"}:
         points = _point_pairs(element.get("points", ""), current_transform)
@@ -241,6 +354,14 @@ def _walk(
         points = _path_points(element.get("d", ""), current_transform)
         if len(points) >= 2:
             fill = (style.fill or element.get("fill") or "none").lower()
+            declared_fill = declarations.get("fill", "").strip().lower()
+            if (
+                declared_fill in {"none", "transparent", "#00000000"}
+                and style.line is None
+                and not element.get("marker-start")
+                and not element.get("marker-end")
+            ):
+                return
             connector_role = role.startswith("edge.") or role == "sequence.message"
             if connector_role or (
                 fill in {"none", "transparent", "#00000000"} and "node" not in classes
@@ -267,17 +388,42 @@ def _walk(
                 )
         return
     if tag == "text":
-        text = _clean_text(" ".join(element.itertext()))
+        text = _svg_text_content(element)
         if text:
-            x = _first_number(element.get("x"), 0.0)
-            y = _first_number(element.get("y"), 0.0)
             font_size = style.font_size or _length(element.get("font-size"), 14.0)
-            width = max(font_size * 0.04, len(text) * font_size * 0.055)
-            height = max(0.25, font_size * 0.09)
-            box = _transformed_box(
-                Box(x - width / 2, y - height * 0.75, width, height),
-                current_transform,
+            x, y = _text_position(element, font_size)
+            width = max(font_size * 0.5, _estimated_text_width(text, font_size))
+            height = max(1.0, font_size * 1.2 * max(1, len(text.splitlines())))
+            anchor = declarations.get("text-anchor", "start").lower()
+            align = {
+                "start": "left",
+                "middle": "center",
+                "end": "right",
+            }.get(anchor, "left")
+            local_left = x
+            if anchor == "middle":
+                local_left -= width / 2
+            elif anchor == "end":
+                local_left -= width
+            baseline = declarations.get("dominant-baseline", "auto").lower()
+            if baseline in {"middle", "central"}:
+                local_top = y - height / 2
+            elif baseline in {"hanging", "text-before-edge"}:
+                local_top = y
+            else:
+                local_top = y - height * 0.82
+            local_center = Point(local_left + width / 2, local_top + height / 2)
+            center = current_transform.apply(local_center)
+            scale_x = hypot(current_transform.a, current_transform.b)
+            scale_y = hypot(current_transform.c, current_transform.d)
+            box = Box(
+                center.x - width * scale_x / 2,
+                center.y - height * scale_y / 2,
+                width * scale_x,
+                height * scale_y,
             )
+            style.text = style.fill or style.text
+            style.fill = None
             scene.add(
                 SceneText(
                     id=element_id,
@@ -285,14 +431,19 @@ def _walk(
                     role="text.default",
                     classes=classes,
                     style=style,
-                    z_index=30,
+                    z_index=_svg_order(element_id),
                     box=box,
                     text=text,
+                    align=align,
+                    rotation=degrees(atan2(current_transform.b, current_transform.a)),
                 )
             )
         return
 
     child_id = element.get("id") or inherited_id
+    child_style = {
+        name: value for name, value in declarations.items() if name in _INHERITED_STYLE_NAMES
+    }
     for child in element:
         _walk(
             child,
@@ -302,6 +453,7 @@ def _walk(
             transform=current_transform,
             inherited_id=child_id,
             inherited_classes=classes,
+            inherited_style=child_style,
             counter=counter,
         )
 
@@ -663,37 +815,35 @@ def _add_shape(
     shape: str,
     *,
     points: list[Point] | None = None,
-) -> None:
+) -> SceneShape | SceneContainer:
     target_id = semantic_id or element_id
     cls = SceneContainer if "cluster" in classes else SceneShape
     if cls is SceneContainer:
-        scene.add(
-            SceneContainer(
-                id=element_id,
-                semantic_id=target_id,
-                role="group.default",
-                classes=classes,
-                style=style,
-                z_index=0,
-                box=box,
-                label="",
-            )
+        item: SceneShape | SceneContainer = SceneContainer(
+            id=element_id,
+            semantic_id=target_id,
+            role="group.default",
+            classes=classes,
+            style=style,
+            z_index=_svg_order(element_id),
+            box=box,
+            label="",
         )
     else:
-        scene.add(
-            SceneShape(
-                id=element_id,
-                semantic_id=target_id,
-                role=role,
-                classes=classes,
-                style=style,
-                z_index=20,
-                box=box,
-                shape=shape,
-                text="",
-                points=list(points or []),
-            )
+        item = SceneShape(
+            id=element_id,
+            semantic_id=target_id,
+            role=role,
+            classes=classes,
+            style=style,
+            z_index=_svg_order(element_id),
+            box=box,
+            shape=shape,
+            text="",
+            points=list(points or []),
         )
+    scene.add(item)
+    return item
 
 
 def _add_connector(
@@ -720,7 +870,7 @@ def _add_connector(
             role=role if role != "node.default" else "edge.default",
             classes=classes,
             style=style,
-            z_index=10,
+            z_index=_svg_order(element_id),
             points=_deduplicate(points),
             source_id=source_id,
             target_id=target_target_id,
@@ -749,8 +899,10 @@ def _marker_kind(value: str | None) -> str | None:
     return "arrow"
 
 
-def _parse_css(root: ET.Element) -> dict[str, dict[str, str]]:
-    result: dict[str, dict[str, str]] = {}
+def _parse_css(root: ET.Element) -> _Stylesheet:
+    result = _Stylesheet(root={}, rules=[])
+    root_id = root.get("id")
+    rule_order = 0
     for element in root.iter():
         if _local(element.tag) != "style":
             continue
@@ -759,19 +911,44 @@ def _parse_css(root: ET.Element) -> dict[str, dict[str, str]]:
             parsed = _parse_declarations(declarations)
             for selector in selector_text.split(","):
                 selector = selector.strip()
-                class_match = re.search(r"(?:^|\s)\.([A-Za-z_][\w-]*)$", selector)
-                if class_match and ":" not in selector:
-                    result.setdefault(class_match.group(1), {}).update(parsed)
+                rule_order += 1
+                if selector in {"svg", ":root"} or (
+                    root_id and selector in {f"#{root_id}", f"#{root_id} svg"}
+                ):
+                    result.root.update(parsed)
+                    continue
+                if ":" in selector or "[" in selector:
+                    continue
+                class_matches = frozenset(re.findall(r"\.([A-Za-z_][\w-]*)", selector))
+                last_component = selector.split()[-1]
+                tag_match = re.match(r"^([A-Za-z_][\w-]*)", last_component)
+                target_tag = tag_match.group(1) if tag_match else None
+                if not class_matches and target_tag is None:
+                    continue
+                result.rules.append(
+                    _CssRule(
+                        required_classes=class_matches,
+                        target_tag=target_tag,
+                        declarations=parsed,
+                        specificity=(
+                            len(re.findall(r"#[A-Za-z_][\w-]*", selector)),
+                            len(class_matches),
+                            1 if target_tag else 0,
+                        ),
+                        order=rule_order,
+                    )
+                )
     return result
 
 
-def _element_style(
+def _element_declarations(
     element: ET.Element,
     classes: set[str],
-    css: dict[str, dict[str, str]],
-    paint_servers: dict[str, str],
-) -> ElementStyle:
-    declarations: dict[str, str] = {}
+    css: _Stylesheet,
+    inherited_style: dict[str, str],
+) -> dict[str, str]:
+    declarations = dict(css.root)
+    declarations.update(inherited_style)
     for name in (
         "fill",
         "fill-opacity",
@@ -781,12 +958,76 @@ def _element_style(
         "stroke-width",
         "stroke-dasharray",
         "opacity",
+        "font-family",
+        "font-size",
+        "font-style",
+        "font-weight",
+        "text-anchor",
+        "dominant-baseline",
+        "display",
+        "visibility",
+        "transform-origin",
     ):
         if element.get(name) is not None:
             declarations[name] = element.get(name, "")
-    for class_name in sorted(classes):
-        declarations.update(css.get(class_name, {}))
+    tag = _local(element.tag)
+    matching_rules = [
+        rule
+        for rule in css.rules
+        if rule.required_classes <= classes and (rule.target_tag is None or rule.target_tag == tag)
+    ]
+    for rule in sorted(
+        matching_rules,
+        key=lambda item: (item.specificity, item.order),
+    ):
+        declarations.update(rule.declarations)
     declarations.update(_parse_declarations(element.get("style", "")))
+    return declarations
+
+
+def _element_style(
+    element: ET.Element,
+    classes: set[str],
+    css: _Stylesheet,
+    paint_servers: dict[str, str],
+    inherited_style: dict[str, str],
+) -> ElementStyle:
+    declarations = _element_declarations(element, classes, css, inherited_style)
+    return _style_from_declarations(declarations, paint_servers)
+
+
+def _foreign_object_text_style(
+    element: ET.Element,
+    classes: set[str],
+    css: _Stylesheet,
+    paint_servers: dict[str, str],
+    inherited_style: dict[str, str],
+) -> ElementStyle:
+    descendant_classes = set(classes)
+    candidates: list[ET.Element] = []
+    for descendant in element.iter():
+        if descendant is element:
+            continue
+        descendant_classes.update(descendant.get("class", "").split())
+        if _local(descendant.tag) in {"span", "p", "div"}:
+            candidates.append(descendant)
+    target = next(
+        (item for item in candidates if _local(item.tag) == "span"),
+        candidates[-1] if candidates else element,
+    )
+    declarations = _element_declarations(
+        target,
+        descendant_classes,
+        css,
+        inherited_style,
+    )
+    return _style_from_declarations(declarations, paint_servers)
+
+
+def _style_from_declarations(
+    declarations: dict[str, str],
+    paint_servers: dict[str, str],
+) -> ElementStyle:
     line_width = _length(declarations.get("stroke-width"), 1.4)
     opacity = None
     if declarations.get("opacity"):
@@ -815,8 +1056,28 @@ def _element_style(
         dash="dash" if has_dash else None,
         font_family=declarations.get("font-family"),
         font_size=_length(declarations.get("font-size"), 0.0) or None,
+        bold=_font_weight_is_bold(declarations.get("font-weight")),
+        italic=_font_style_is_italic(declarations.get("font-style")),
         opacity=opacity,
     )
+
+
+def _font_weight_is_bold(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered in {"bold", "bolder"}:
+        return True
+    try:
+        return int(float(lowered)) >= 600
+    except ValueError:
+        return False
+
+
+def _font_style_is_italic(value: str | None) -> bool | None:
+    if value is None:
+        return None
+    return value.strip().lower() in {"italic", "oblique"}
 
 
 def _parse_declarations(text: str) -> dict[str, str]:
@@ -951,8 +1212,39 @@ def _parse_transform(value: str) -> _Affine:
                 current = _Affine(e=-cx, f=-cy).then(rotation).then(_Affine(e=cx, f=cy))
             else:
                 current = rotation
-        transform = transform.then(current)
+        transform = current.then(transform)
     return transform
+
+
+def _transform_with_origin(value: str, origin: str | None) -> _Affine:
+    transform = _parse_transform(value)
+    origin_values = _numbers(origin or "")
+    if len(origin_values) < 2:
+        return transform
+    origin_x, origin_y = origin_values[:2]
+    return _Affine(e=-origin_x, f=-origin_y).then(transform).then(_Affine(e=origin_x, f=origin_y))
+
+
+def _svg_viewport_transform(element: ET.Element) -> _Affine:
+    view_box = _numbers(element.get("viewBox", ""))
+    if len(view_box) < 4:
+        return _Affine(
+            e=_length(element.get("x"), 0.0),
+            f=_length(element.get("y"), 0.0),
+        )
+    min_x, min_y, view_width, view_height = view_box[:4]
+    width = _length(element.get("width"), view_width)
+    height = _length(element.get("height"), view_height)
+    if view_width <= 0 or view_height <= 0 or width <= 0 or height <= 0:
+        return _Affine()
+    scale = min(width / view_width, height / view_height)
+    offset_x = _length(element.get("x"), 0.0) + (width - view_width * scale) / 2
+    offset_y = _length(element.get("y"), 0.0) + (height - view_height * scale) / 2
+    return (
+        _Affine(e=-min_x, f=-min_y)
+        .then(_Affine(a=scale, d=scale))
+        .then(_Affine(e=offset_x, f=offset_y))
+    )
 
 
 def _transformed_box(box: Box, transform: _Affine) -> Box:
@@ -963,6 +1255,21 @@ def _transformed_box(box: Box, transform: _Affine) -> Box:
         transform.apply(Point(box.x + box.width, box.y + box.height)),
     ]
     return _box_for_points(points)
+
+
+def _transformed_primitive_box(box: Box, transform: _Affine) -> tuple[Box, float]:
+    center = transform.apply(box.center)
+    width = box.width * hypot(transform.a, transform.b)
+    height = box.height * hypot(transform.c, transform.d)
+    return (
+        Box(
+            center.x - width / 2,
+            center.y - height / 2,
+            width,
+            height,
+        ),
+        degrees(atan2(transform.b, transform.a)),
+    )
 
 
 def _box_for_points(points: Iterable[Point]) -> Box:
@@ -1002,6 +1309,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
     subpath_start = current
     last_control: Point | None = None
     command: str | None = None
+    last_was_move = False
     index = 0
 
     def point(x: float, y: float, *, relative: bool) -> Point:
@@ -1018,6 +1326,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
                 current = subpath_start
                 points.append(current)
                 last_control = None
+                last_was_move = False
                 command = None
             continue
         if command is None:
@@ -1034,13 +1343,18 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
         if upper == "M":
             current = point(values[0], values[1], relative=relative)
             subpath_start = current
-            points.append(current)
+            if last_was_move and points:
+                points[-1] = current
+            else:
+                points.append(current)
             command = "l" if relative else "L"
             last_control = None
+            last_was_move = True
         elif upper == "L":
             current = point(values[0], values[1], relative=relative)
             points.append(current)
             last_control = None
+            last_was_move = False
         elif upper == "H":
             current = Point(
                 current.x + values[0] if relative else values[0],
@@ -1048,6 +1362,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             )
             points.append(current)
             last_control = None
+            last_was_move = False
         elif upper == "V":
             current = Point(
                 current.x,
@@ -1055,6 +1370,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             )
             points.append(current)
             last_control = None
+            last_was_move = False
         elif upper == "C":
             control1 = point(values[0], values[1], relative=relative)
             control2 = point(values[2], values[3], relative=relative)
@@ -1062,6 +1378,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             points.extend(_sample_cubic(current, control1, control2, destination))
             current = destination
             last_control = control2
+            last_was_move = False
         elif upper == "S":
             control1 = (
                 Point(
@@ -1076,12 +1393,14 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             points.extend(_sample_cubic(current, control1, control2, destination))
             current = destination
             last_control = control2
+            last_was_move = False
         elif upper == "Q":
             control = point(values[0], values[1], relative=relative)
             destination = point(values[2], values[3], relative=relative)
             points.extend(_sample_quadratic(current, control, destination))
             current = destination
             last_control = control
+            last_was_move = False
         elif upper == "T":
             control = (
                 Point(
@@ -1095,6 +1414,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             points.extend(_sample_quadratic(current, control, destination))
             current = destination
             last_control = control
+            last_was_move = False
         elif upper == "A":
             destination = point(values[5], values[6], relative=relative)
             points.extend(
@@ -1110,6 +1430,7 @@ def _path_points(value: str, transform: _Affine) -> list[Point]:
             )
             current = destination
             last_control = None
+            last_was_move = False
     return [transform.apply(item) for item in points]
 
 
@@ -1172,7 +1493,9 @@ def _sample_arc(
     elif sweep and delta < 0:
         delta += 2 * pi
 
-    segment_count = max(2, ceil(abs(delta) / (pi / 12)))
+    # Five-degree segments keep editable PowerPoint freeforms visually smooth
+    # at presentation scale without introducing Bézier-only geometry.
+    segment_count = max(2, ceil(abs(delta) / (pi / 36)))
     result: list[Point] = []
     for index in range(1, segment_count + 1):
         angle = start_angle + delta * index / segment_count
@@ -1243,6 +1566,72 @@ def _length(value: str | None, default: float) -> float:
         return default
     match = _NUMBER_RE.search(value)
     return float(match.group(0)) if match else default
+
+
+def _text_position(element: ET.Element, font_size: float) -> tuple[float, float]:
+    first_tspan = next(
+        (child for child in element.iter() if _local(child.tag) == "tspan"),
+        None,
+    )
+    x_value = element.get("x")
+    y_value = element.get("y")
+    if first_tspan is not None:
+        x_value = first_tspan.get("x") or x_value
+        y_value = first_tspan.get("y") or y_value
+    x = _css_length(x_value, 0.0, font_size)
+    y = _css_length(y_value, 0.0, font_size)
+    dy_values = [element.get("dy")]
+    if first_tspan is not None:
+        dy_values.append(first_tspan.get("dy"))
+    for dy_value in dy_values:
+        y += _css_length(dy_value, 0.0, font_size)
+    return x, y
+
+
+def _css_length(value: str | None, default: float, font_size: float) -> float:
+    if value is None:
+        return default
+    number = _first_number(value, default)
+    lowered = value.strip().lower()
+    if lowered.endswith("em"):
+        return number * font_size
+    if lowered.endswith("ex"):
+        return number * font_size * 0.5
+    return number
+
+
+def _estimated_text_width(text: str, font_size: float) -> float:
+    widest = 0.0
+    for line in text.splitlines() or [""]:
+        units = 0.0
+        for character in line:
+            if east_asian_width(character) in {"W", "F"}:
+                units += 1.0
+            elif character.isspace():
+                units += 0.33
+            elif character in ".,:;!|'`ijlItf()[]{}":
+                units += 0.34
+            elif character.isupper():
+                units += 0.62
+            else:
+                units += 0.55
+        widest = max(widest, units)
+    return max(widest * font_size, font_size * 0.5)
+
+
+def _svg_text_content(element: ET.Element) -> str:
+    direct_tspans = [child for child in element if _local(child.tag) == "tspan"]
+    if len(direct_tspans) > 1:
+        lines = [_clean_text(" ".join(child.itertext())) for child in direct_tspans]
+        return "\n".join(line for line in lines if line)
+    return _clean_text(" ".join(element.itertext()))
+
+
+def _svg_order(element_id: str) -> int:
+    try:
+        return int(element_id.rsplit("-", 1)[1])
+    except (IndexError, ValueError):
+        return 0
 
 
 def _looks_like_diamond(points: list[Point]) -> bool:

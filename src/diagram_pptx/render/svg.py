@@ -162,6 +162,14 @@ class SvgRenderer:
 
     def _shape(self, root: ET.Element, item: SceneShape, points_to_units: float) -> None:
         group = _semantic_group(root, item.semantic_id, item.role)
+        if abs(item.rotation) > 1e-9:
+            group.set(
+                "transform",
+                (
+                    f"rotate({_num(item.rotation)} "
+                    f"{_num(item.box.center.x)} {_num(item.box.center.y)})"
+                ),
+            )
         style = _shape_style(item.style, points_to_units)
         box = item.box
         shape = item.shape
@@ -337,6 +345,7 @@ class SvgRenderer:
             default_size=12.0,
             align=item.align,
             points_to_units=points_to_units,
+            rotation=item.rotation,
         )
 
 
@@ -361,6 +370,7 @@ def _text(
     default_size: float,
     points_to_units: float,
     align: str = "center",
+    rotation: float = 0.0,
 ) -> None:
     lines = re.split(r"(?:\r?\n|<br\s*/?>)", value, flags=re.IGNORECASE) or [""]
     font_size = style.font_size or default_size
@@ -391,6 +401,10 @@ def _text(
         attributes["font-style"] = "italic"
     if opacity < 1:
         attributes["fill-opacity"] = _num(opacity)
+    if abs(rotation) > 1e-9:
+        attributes["transform"] = (
+            f"rotate({_num(rotation)} {_num(box.center.x)} {_num(box.center.y)})"
+        )
     text_element = ET.SubElement(parent, _tag("text"), attributes)
     for index, line in enumerate(lines):
         tspan = ET.SubElement(

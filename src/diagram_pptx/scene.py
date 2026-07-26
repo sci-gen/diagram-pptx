@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from math import cos, radians, sin
 from typing import Any, Literal
 
 from .styles import ElementStyle
@@ -62,6 +63,7 @@ class SceneShape(SceneElement):
     shape: str = "rectangle"
     text: str = ""
     points: list[Point] = field(default_factory=list)
+    rotation: float = 0.0
 
 
 @dataclass(slots=True)
@@ -84,6 +86,7 @@ class SceneText(SceneElement):
     box: Box = field(default_factory=lambda: Box(0, 0, 1, 0.3))
     text: str = ""
     align: Literal["left", "center", "right"] = "center"
+    rotation: float = 0.0
 
 
 @dataclass(slots=True)
@@ -125,15 +128,39 @@ class DrawingScene:
         points: list[Point] = []
         for element in self.elements:
             if isinstance(element, (SceneShape, SceneText, SceneContainer)):
-                points.extend(
-                    [
-                        Point(element.box.x, element.box.y),
-                        Point(
+                rotation = element.rotation if isinstance(element, (SceneShape, SceneText)) else 0.0
+                if abs(rotation) > 1e-9:
+                    angle = radians(rotation)
+                    cosine = cos(angle)
+                    sine = sin(angle)
+                    center = element.box.center
+                    for x, y in (
+                        (element.box.x, element.box.y),
+                        (element.box.x + element.box.width, element.box.y),
+                        (
                             element.box.x + element.box.width,
                             element.box.y + element.box.height,
                         ),
-                    ]
-                )
+                        (element.box.x, element.box.y + element.box.height),
+                    ):
+                        dx = x - center.x
+                        dy = y - center.y
+                        points.append(
+                            Point(
+                                center.x + cosine * dx - sine * dy,
+                                center.y + sine * dx + cosine * dy,
+                            )
+                        )
+                else:
+                    points.extend(
+                        [
+                            Point(element.box.x, element.box.y),
+                            Point(
+                                element.box.x + element.box.width,
+                                element.box.y + element.box.height,
+                            ),
+                        ]
+                    )
             elif isinstance(element, SceneConnector):
                 points.extend(element.points)
         if not points:

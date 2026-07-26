@@ -70,7 +70,7 @@
       "backend_used": "official",
       "source": "sources/journey.mmd",
       "image": "images/journey.png",
-      "editable_shape_count": 124
+      "editable_shape_count": 49
     },
     {
       "slide": 8,
@@ -120,7 +120,7 @@
       "backend_used": "official",
       "source": "sources/gitgraph.mmd",
       "image": "images/gitgraph.png",
-      "editable_shape_count": 49
+      "editable_shape_count": 85
     },
     {
       "slide": 13,
@@ -150,7 +150,7 @@
       "backend_used": "official",
       "source": "sources/timeline.mmd",
       "image": "images/timeline.png",
-      "editable_shape_count": 140
+      "editable_shape_count": 32
     },
     {
       "slide": 16,
@@ -250,7 +250,7 @@
       "backend_used": "official",
       "source": "sources/treemap.mmd",
       "image": "images/treemap.png",
-      "editable_shape_count": 25
+      "editable_shape_count": 16
     },
     {
       "slide": 26,
@@ -260,7 +260,7 @@
       "backend_used": "official",
       "source": "sources/venn.mmd",
       "image": "images/venn.png",
-      "editable_shape_count": 34
+      "editable_shape_count": 6
     },
     {
       "slide": 27,
@@ -310,7 +310,7 @@
       "backend_used": "official",
       "source": "sources/railroad.mmd",
       "image": "images/railroad.png",
-      "editable_shape_count": 256
+      "editable_shape_count": 640
     }
   ]
 }

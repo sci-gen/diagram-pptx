@@ -38,6 +38,9 @@ Versioning.
   a usable stop color, and sanitizes invalid generated paint values.
 - Official SVG import now preserves elliptical arc geometry and per-paint
   opacity, improving Venn diagrams and other curved translucent shapes.
+- Official SVG import now preserves nested viewport transforms, DOM paint
+  order, rotated primitives and text, text anchors/baselines, multiline
+  tspans, inherited presentation attributes, and selector-aware CSS styling.
 
 ## [0.1.0a1] - 2026-07-26
 

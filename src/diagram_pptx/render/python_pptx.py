@@ -430,6 +430,12 @@ class PythonPptxRenderer:
         shape_type = self.shape_registry.get(item.shape, MSO_SHAPE.RECTANGLE)
         shape = slide.shapes.add_shape(shape_type, left, top, width, height)
         shape.name = self._shape_name(item)
+        shape.rotation = item.rotation
+        if item.shape == "rounded_rectangle" and len(shape.adjustments):
+            shape.adjustments[0] = max(
+                0.01,
+                min(0.5, float(item.metadata.get("corner_radius_ratio", 0.08))),
+            )
         self._apply_fill(shape.fill, item.style, default="#EAF2FF")
         self._apply_line(
             shape.line,
@@ -577,6 +583,7 @@ class PythonPptxRenderer:
         left, top, width, height = transform.box(item.box)
         shape = slide.shapes.add_textbox(left, top, width, height)
         shape.name = self._shape_name(item)
+        shape.rotation = item.rotation
         if item.role == "edge.label":
             self._apply_fill(
                 shape.fill,
@@ -602,6 +609,10 @@ class PythonPptxRenderer:
             min_size=9.0,
             max_size=24.0,
         )
+        shape.text_frame.margin_left = 0
+        shape.text_frame.margin_right = 0
+        shape.text_frame.margin_top = 0
+        shape.text_frame.margin_bottom = 0
         return shape
 
     @classmethod

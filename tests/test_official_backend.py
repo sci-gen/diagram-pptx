@@ -10,7 +10,7 @@ from diagram_pptx import compile_diagram, parse_mermaid
 from diagram_pptx.importers import import_mermaid_svg
 from diagram_pptx.official import mmdc_version
 from diagram_pptx.render import PythonPptxRenderer
-from diagram_pptx.scene import SceneConnector, SceneShape, SceneText
+from diagram_pptx.scene import Box, Point, SceneConnector, SceneShape, SceneText
 
 
 def test_mermaid_svg_importer_keeps_native_geometry_and_ignores_images() -> None:
@@ -116,6 +116,200 @@ def test_mermaid_svg_samples_elliptical_arc_paths() -> None:
     assert len(circle.points) >= 24
     assert circle.style.fill == "#5353FF1A"
     assert circle.style.line == "#5353FFF2"
+
+
+def test_mermaid_svg_preserves_text_metrics_rotation_and_tspan_position() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg id="sample" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200">
+  <style>
+    #sample { font-size: 16px; fill: #123456; }
+    #sample .label { font-weight: bold; }
+  </style>
+  <text class="label" text-anchor="end" dominant-baseline="middle"
+        transform="translate(80 100) rotate(-90)">
+    <tspan x="0" dy="1em">Rotated label</tspan>
+  </text>
+</svg>
+""",
+        kind="quadrant",
+    )
+
+    label = next(item for item in scene.elements if isinstance(item, SceneText))
+    assert label.align == "right"
+    assert label.rotation == pytest.approx(-90)
+    assert label.style.font_size == 16
+    assert label.style.bold is True
+    assert label.style.text == "#123456"
+    assert label.box.width > 80
+    assert label.box.height == pytest.approx(19.2)
+
+
+def test_mermaid_svg_composes_nested_transforms_and_nested_svg_viewbox() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200">
+  <g transform="translate(100 50)">
+    <g transform="scale(2)">
+      <rect x="5" y="5" width="10" height="10" fill="#abcdef"/>
+    </g>
+    <svg x="20" y="30" width="20" height="10" viewBox="0 0 80 40">
+      <rect width="80" height="40" fill="#123456"/>
+    </svg>
+  </g>
+</svg>
+""",
+        kind="architecture",
+    )
+
+    shapes = [item for item in scene.elements if isinstance(item, SceneShape)]
+    scaled, viewport = shapes
+    assert scaled.box == Box(0, 0, 20, 20)
+    assert viewport.box == Box(10, 20, 20, 10)
+
+
+def test_mermaid_svg_skips_hidden_and_transparent_helper_geometry() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <clipPath id="clip"><rect width="90" height="90"/></clipPath>
+  <rect width="80" height="80" style="display: none"/>
+  <path d="M 10 10 A 20 20 0 0 1 50 50"
+        style="fill: transparent; fill-opacity: 0"/>
+  <circle cx="50" cy="50" r="10" fill="#abcdef"/>
+</svg>
+""",
+        kind="venn",
+    )
+
+    shapes = [item for item in scene.elements if isinstance(item, SceneShape)]
+    assert len(shapes) == 1
+    assert shapes[0].shape == "ellipse"
+
+
+def test_mermaid_svg_preserves_dom_order_and_multiline_tspans() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+  <rect width="200" height="100" fill="#ffffff"/>
+  <line x1="10" y1="50" x2="190" y2="50" stroke="#333333"/>
+  <text x="100" y="42" text-anchor="middle">
+    <tspan x="100" dy="0">First</tspan>
+    <tspan x="100" dy="16">Second</tspan>
+  </text>
+</svg>
+""",
+        kind="zenuml",
+    )
+
+    background, connector, label = scene.elements
+    assert background.z_index < connector.z_index < label.z_index
+    assert isinstance(label, SceneText)
+    assert label.text == "First\nSecond"
+    assert label.box.height >= 33
+
+
+def test_mermaid_svg_resolves_compound_class_text_anchor_and_corner_radius() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg id="sample" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100">
+  <style>
+    #sample .label { text-anchor: end; }
+    #sample .label.cause { text-anchor: middle; font-weight: bold; }
+  </style>
+  <rect x="20" y="20" width="100" height="40" rx="4" fill="#ffffff"/>
+  <text class="label cause" x="70" y="40">Centered</text>
+</svg>
+""",
+        kind="ishikawa",
+    )
+
+    shape = next(item for item in scene.elements if isinstance(item, SceneShape))
+    label = next(item for item in scene.elements if isinstance(item, SceneText))
+    assert shape.metadata["corner_radius_ratio"] == pytest.approx(0.1)
+    assert label.align == "center"
+    assert label.style.bold is True
+
+
+def test_mermaid_svg_preserves_rotated_rectangle_geometry() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="-20" y="-10" width="40" height="20"
+        transform="translate(50 50) rotate(-45)" fill="#ffffff"/>
+</svg>
+""",
+        kind="gitgraph",
+    )
+
+    shape = next(item for item in scene.elements if isinstance(item, SceneShape))
+    assert shape.box.width == pytest.approx(40)
+    assert shape.box.height == pytest.approx(20)
+    assert shape.rotation == pytest.approx(-45)
+
+
+def test_mermaid_svg_applies_css_transform_origin() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg id="sample" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>#sample .milestone { transform: rotate(45deg); }</style>
+  <rect x="0" y="0" width="1" height="1" fill="#ffffff"/>
+  <rect class="milestone" x="40" y="40" width="20" height="20"
+        transform-origin="50px 50px" fill="#abcdef"/>
+</svg>
+""",
+        kind="gantt",
+    )
+
+    shape = next(
+        item
+        for item in scene.elements
+        if isinstance(item, SceneShape) and "milestone" in item.classes
+    )
+    assert shape.box.center == Point(50, 50)
+    assert shape.rotation == pytest.approx(45)
+
+
+def test_mermaid_svg_inherits_group_presentation_attributes() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <g fill="none" stroke="#333333">
+    <path d="M 10 10 V 90 H 90"/>
+  </g>
+</svg>
+""",
+        kind="gantt",
+    )
+
+    assert len(scene.elements) == 1
+    path = scene.elements[0]
+    assert isinstance(path, SceneConnector)
+    assert path.style.fill == "none"
+    assert path.style.line == "#333333"
+
+
+def test_mermaid_svg_applies_xhtml_label_css_to_foreign_object_text() -> None:
+    scene = import_mermaid_svg(
+        """\
+<svg id="sample" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50">
+  <style>#sample .root span { color: #ffffff; font-weight: bold; }</style>
+  <g class="root">
+    <foreignObject x="10" y="10" width="80" height="30">
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <span class="nodeLabel"><p>Product</p></span>
+      </div>
+    </foreignObject>
+  </g>
+</svg>
+""",
+        kind="mindmap",
+    )
+
+    label = next(item for item in scene.elements if isinstance(item, SceneText))
+    assert label.style.text == "#FFFFFF"
+    assert label.style.fill is None
+    assert label.style.bold is True
 
 
 def test_sequence_self_message_is_enlarged_and_labels_are_offset() -> None:
