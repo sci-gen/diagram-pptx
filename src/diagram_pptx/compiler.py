@@ -27,6 +27,7 @@ from .styles import (
     SourceStylePolicy,
     StyleResolver,
     contrast_text_color,
+    normalize_color,
     style_preset,
 )
 
@@ -572,9 +573,8 @@ def _resolve_scene_styles(
             )
             else ElementStyle()
         )
-        element_override = global_override.merged(
-            ElementStyle.from_dict(overrides.get(element.semantic_id))
-        )
+        explicit_override = ElementStyle.from_dict(overrides.get(element.semantic_id))
+        element_override = global_override.merged(explicit_override)
         element.style = resolver.resolve(
             element_id=element.semantic_id,
             role=element.role,
@@ -583,6 +583,16 @@ def _resolve_scene_styles(
             default=base.merged(exact),
             override=element_override,
         )
+        if (
+            label_background is not None
+            and explicit_override.text is None
+            and element.style.label_fill is not None
+        ):
+            normalized_label_fill = normalize_color(element.style.label_fill)
+            if normalized_label_fill.startswith("#") and (
+                len(normalized_label_fill) == 7 or normalized_label_fill[7:9] != "00"
+            ):
+                element.style.text = contrast_text_color(normalized_label_fill)
         if colormap is not None:
             _apply_colormap_style(element, colormap)
 

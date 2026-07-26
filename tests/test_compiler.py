@@ -164,13 +164,14 @@ def test_global_label_background_resolves_theme_tokens_and_element_override_wins
     connector = next(item for item in result.scene.elements if isinstance(item, SceneConnector))
 
     assert connector.style.label_fill == "#243447"
+    assert connector.style.text == "#FFFFFF"
 
     overridden = compile_diagram(
         parse_mermaid("flowchart LR\nA[One] -->|valid| B[Two]"),
         slide=presentation.slides.add_slide(presentation.slide_layouts[6]),
         bounds=(1, 1, 8, 4),
         label_background="#243447",
-        style_overrides={"edge-0": {"label_fill": "#F3F0E8"}},
+        style_overrides={"edge-0": {"label_fill": "#F3F0E8", "text": "#6750A4"}},
         group=False,
     )
     overridden_connector = next(
@@ -178,6 +179,7 @@ def test_global_label_background_resolves_theme_tokens_and_element_override_wins
     )
 
     assert overridden_connector.style.label_fill == "#F3F0E8"
+    assert overridden_connector.style.text == "#6750A4"
 
 
 def test_primary_secondary_colors_choose_text_contrast_per_node() -> None:

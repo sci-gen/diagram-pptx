@@ -131,7 +131,9 @@ render_mermaid(
 Use `label_background="transparent"` to remove the label box. Theme authors
 can still set `label_fill` per role, class, or ID; an explicit per-element
 override and the color-map `label_fill` channel take precedence over this
-global convenience value.
+global convenience value. For an opaque RGB/RGBA label background, the label
+text automatically selects light or dark contrast unless an element override
+or color-map `text` channel supplies a color.
 
 ## Placement
 

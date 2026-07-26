@@ -143,6 +143,7 @@ def test_explicit_label_background_applies_to_detached_powerpoint_labels() -> No
     label = result.edge_label_shapes[0]
     assert label.fill.type == MSO_FILL_TYPE.SOLID
     assert str(label.fill.fore_color.rgb) == "243447"
+    assert str(label.text_frame.paragraphs[0].runs[0].font.color.rgb) == "FFFFFF"
 
 
 def test_bent_vertical_label_stays_on_line_while_short_horizontal_labels_detach() -> None:

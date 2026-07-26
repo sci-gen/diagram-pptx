@@ -23,6 +23,8 @@ Versioning.
   including backend selection, style resolution, themes, and color maps.
 - Missing Mermaid CLI errors now explain the Node.js/npm prerequisite;
   `backend="auto"` records an informational Native-fallback diagnostic.
+- Opaque custom label backgrounds automatically select light or dark text
+  unless an explicit element or color-map text color is supplied.
 
 ## [0.1.0a1] - 2026-07-26
 
