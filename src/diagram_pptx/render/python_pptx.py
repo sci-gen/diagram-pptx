@@ -43,7 +43,7 @@ class RenderTheme:
     group_text: str = "#52687A"
     font_family: str = "Aptos"
     node_font_size: float = 15.0
-    edge_font_size: float = 11.0
+    edge_font_size: float = 12.0
     group_font_size: float = 11.0
     line_width: float = 1.4
 
@@ -572,15 +572,33 @@ class PythonPptxRenderer:
                 item.label,
                 item.style,
                 default_color=item.style.line or "#536273",
-                default_size=11.0,
+                default_size=12.0,
                 font_scale=transform.font_scale,
-                min_size=9.0,
+                min_size=12.0,
                 max_size=18.0,
             )
         return connectors, label_shape
 
     def _render_text(self, slide: Any, item: SceneText, transform: _Transform) -> Any:
         left, top, width, height = transform.box(item.box)
+        is_edge_text = item.role == "edge.label" or "messageText" in item.classes
+        if is_edge_text:
+            # Diagram labels are presentation copy, so retain a readable
+            # 12-point floor even when a large source diagram is scaled down.
+            target_width = Inches(
+                self._connector_label_width(
+                    item.text,
+                    item.style,
+                    font_scale=transform.font_scale,
+                )
+            )
+            target_height = Inches(0.36)
+            center_x = left + width // 2
+            center_y = top + height // 2
+            width = max(width, target_width)
+            height = max(height, target_height)
+            left = center_x - width // 2
+            top = center_y - height // 2
         shape = slide.shapes.add_textbox(left, top, width, height)
         shape.name = self._shape_name(item)
         shape.rotation = item.rotation
@@ -606,7 +624,7 @@ class PythonPptxRenderer:
             default_size=12.0,
             align=align,
             font_scale=transform.font_scale,
-            min_size=9.0,
+            min_size=12.0 if is_edge_text else 9.0,
             max_size=40.0,
         )
         shape.text_frame.margin_left = 0
@@ -854,10 +872,16 @@ class PythonPptxRenderer:
     ) -> float:
         """Estimate a compact physical label width for Latin and CJK text."""
 
-        columns = sum(
-            2 if east_asian_width(character) in {"W", "F", "A"} else 1 for character in text
+        columns = max(
+            (
+                sum(
+                    2 if east_asian_width(character) in {"W", "F", "A"} else 1 for character in line
+                )
+                for line in text.splitlines()
+            ),
+            default=0,
         )
-        font_points = max(9.0, min(18.0, (style.font_size or 11.0) * font_scale))
+        font_points = max(12.0, min(18.0, (style.font_size or 12.0) * font_scale))
         return max(0.42, min(3.0, columns * font_points / 72.0 * 0.55 + 0.18))
 
     @staticmethod

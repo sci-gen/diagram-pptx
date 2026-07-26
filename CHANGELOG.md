@@ -58,6 +58,8 @@ Versioning.
   editable AutoShapes, with duplicate SVG fallback labels removed.
 - Official Timeline year and event labels now live directly in their
   editable AutoShapes and remain vertically centered after scaling.
+- PowerPoint edge and sequence-message labels now keep a presentation-safe
+  12-point minimum, with their text boxes expanded around the original anchor.
 
 ## [0.1.0a1] - 2026-07-26
 

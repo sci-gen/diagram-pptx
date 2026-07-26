@@ -126,6 +126,7 @@ def test_short_connector_label_moves_above_the_line_without_hiding_the_arrow() -
     label = result.edge_label_shapes[0]
     assert label.top + label.height < line.top
     assert label.fill.type == MSO_FILL_TYPE.BACKGROUND
+    assert label.text_frame.paragraphs[0].runs[0].font.size.pt >= 12.0
     assert '<a:tailEnd type="triangle" w="med" len="med"/>' in line._element.xml
 
 
