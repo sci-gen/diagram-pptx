@@ -241,6 +241,36 @@ description: Create or edit PowerPoint files with Mermaid diagrams rendered as e
 6. `style="official"` changes appearance, not the geometry backend.
 7. Use a new absolute `.pptx` output path and never overwrite the input.
 8. Return the output path, slide number, backend, and diagnostics.
+
+## Author Mermaid for a 16:9 slide
+
+Apply these guardrails only when generating or restructuring Mermaid from a
+brief. Preserve user-supplied Mermaid unless the user asks for simplification.
+
+1. Design for one readable slide, not for an exhaustive process model.
+2. For a full-slide diagram, target a logical aspect ratio between about
+   `1.3:1` and `2.2:1` after reserving space for the slide title.
+3. Keep the primary story to roughly 6–14 nodes. Collapse implementation
+   microsteps into one audience-meaningful step.
+4. Prefer at most 6 primary columns, 5 primary rows, 3 branches from one
+   decision, and 2 levels of nested containers.
+5. Use `LR` for a short linear story with at most about 6 stages. Use `TD`
+   when branching, feedback loops, or parallel work would make `LR` too wide.
+6. Keep node labels to one short phrase or two deliberate lines. Keep edge
+   labels shorter than node labels; do not put sentences on connectors.
+7. For Sequence diagrams, target 3–6 participants, 6–12 messages, and at most
+   2 nested interaction fragments on one slide.
+8. For Class and ER diagrams, target 3–7 classes/entities and show only the
+   members needed for the slide's message.
+9. For State diagrams, target 5–12 visible states and no more than 2 levels of
+   composite-state nesting.
+10. If the design exceeds these budgets, create an overview slide plus one or
+    more detail diagrams. Do not solve density by shrinking the font.
+11. Before rendering, count the implied rows and columns and shorten or split
+    any diagram that is extremely wide, tall, or dominated by tiny labels.
+12. Inspect the rendered slide. If labels wrap unexpectedly, overlap, clip,
+    or reach the configured minimum font size, simplify or split the diagram
+    and render again.
 ```
 
 This split gives each layer one responsibility:
