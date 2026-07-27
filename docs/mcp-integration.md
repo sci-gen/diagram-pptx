@@ -264,11 +264,18 @@ brief. Preserve user-supplied Mermaid unless the user asks for simplification.
    members needed for the slide's message.
 9. For State diagrams, target 5–12 visible states and no more than 2 levels of
    composite-state nesting.
-10. If the design exceeds these budgets, create an overview slide plus one or
-    more detail diagrams. Do not solve density by shrinking the font.
-11. Before rendering, count the implied rows and columns and shorten or split
+10. If the design exceeds these budgets, prefer multiple Mermaid diagrams:
+    one overview plus one or more detail diagrams. Do not solve density by
+    shrinking the font.
+11. Split at boundaries crossed by few edges, such as weakly coupled branches,
+    cohesive subprocesses, phases, or domain boundaries. Avoid cutting through
+    a tightly connected decision loop merely to equalize node counts.
+12. Keep cross-diagram continuity explicit. Name each detail diagram after its
+    overview branch and repeat the relevant entry or exit node when needed to
+    make the handoff understandable without verbal explanation.
+13. Before rendering, count the implied rows and columns and shorten or split
     any diagram that is extremely wide, tall, or dominated by tiny labels.
-12. Inspect the rendered slide. If labels wrap unexpectedly, overlap, clip,
+14. Inspect the rendered slide. If labels wrap unexpectedly, overlap, clip,
     or reach the configured minimum font size, simplify or split the diagram
     and render again.
 ```
