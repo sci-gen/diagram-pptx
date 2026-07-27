@@ -6,6 +6,13 @@ Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- A provider-neutral LLM-as-a-judge evaluation kit for 16:9 Mermaid
+  authoring, including bilingual guidance, mixed Japanese/English cases,
+  deterministic rendering metrics, JSON contracts, pairwise judgments, and a
+  public feedback form.
+
 ## [0.1.0b2] - 2026-07-27
 
 ### Changed

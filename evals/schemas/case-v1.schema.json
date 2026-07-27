@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sci-gen/diagram-pptx/evals/schemas/case-v1.schema.json",
+  "title": "diagram-pptx slide-authoring case v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "mode",
+    "language",
+    "diagram_kind",
+    "slide_region",
+    "brief",
+    "must_include",
+    "expected_split",
+    "expected_diagram_count",
+    "max_primary_nodes_per_diagram",
+    "evaluation_notes",
+    "tags"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "mode": {"enum": ["author", "preserve"]},
+    "language": {"enum": ["en", "ja"]},
+    "diagram_kind": {"enum": ["flowchart", "sequence", "class", "er", "state"]},
+    "slide_region": {"enum": ["full", "half"]},
+    "brief": {"type": "string", "minLength": 1},
+    "source": {"type": "string", "minLength": 1},
+    "must_include": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "expected_split": {"enum": ["avoid", "allow", "prefer"]},
+    "expected_diagram_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": {"type": "integer", "minimum": 1},
+        "max": {"type": "integer", "minimum": 1}
+      }
+    },
+    "max_primary_nodes_per_diagram": {"type": "integer", "minimum": 1},
+    "target_aspect_ratio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": {"type": "number", "exclusiveMinimum": 0},
+        "max": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "evaluation_notes": {"type": "string", "minLength": 1},
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "preserve"}}},
+      "then": {"required": ["source"]}
+    }
+  ]
+}
