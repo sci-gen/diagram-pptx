@@ -206,6 +206,7 @@ from diagram_pptx import (
 compiler = DiagramCompiler(
     DiagramSettings(
         typography=TypographySettings(
+            japanese_font_family="Yu Gothic",
             node="18pt",
             edge="12pt",
             group="14pt",
@@ -219,9 +220,31 @@ compiler.render_mermaid(other_source, slide=slide, position="right")
 ```
 
 既定は`fit="fit"`です。単位付きの明示サイズをPowerPoint上の希望サイズとして
-扱い、必要な場合は図形内へ収まるよう縮小します。`fit="none"`では、はみ出しても
-指定サイズを維持します。自動文字には通常9pt、connector／messageには12ptの
-下限があり、`min_font_size`と`edge_min_font_size`で変更できます。
+扱い、ファイルを開く前に図形の実寸へ合わせて縮小します。PowerPointのautofitも
+最後の安全策として有効にします。`fit="none"`では、はみ出しても指定サイズを
+維持します。自動文字には通常9pt、connector／messageには12ptの下限があり、
+`min_font_size`と`edge_min_font_size`で変更できます。下限でも収まらない場合は、
+ラベルの短縮・明示改行・bounds拡大・diagram分割のいずれかが必要です。
+
+日本語を含む文字列の既定fontは`Yu Gothic`（游ゴシック）で、PowerPointの
+East Asian typefaceにも明示します。compiler単位で
+`japanese_font_family="BIZ UDPGothic"`のように変更できます。
+全言語を同じfontにする場合は`font_family`を指定します。
+
+1つのdiagram内で意図的に文字サイズを変えることもできます。
+
+```python
+result = compiler.render_mermaid(
+    source,
+    slide=slide,
+    style_overrides={
+        "primary_decision": {"font_size": "24pt"},
+        "supporting_note": {"font_size": "12pt"},
+    },
+)
+```
+
+fit処理はこの相対的な大小を維持し、収まらない個別図形だけを縮小します。
 
 文字設定の優先順位は通常のstyle階層と同じです。
 

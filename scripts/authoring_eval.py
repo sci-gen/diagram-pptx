@@ -8,16 +8,19 @@ import re
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
+from math import ceil
 from pathlib import Path
 from statistics import fmean
 from typing import Any
+from unicodedata import east_asian_width
 
-from diagram_pptx import build_scene, parse_mermaid, to_svg
+from diagram_pptx import FontSize, build_scene, parse_mermaid, to_svg
 from diagram_pptx.scene import SceneConnector, SceneContainer, SceneShape, SceneText
 
 SCORE_DIMENSIONS = (
     "requirement_fidelity",
     "slide_readability",
+    "typography_quality",
     "visual_balance",
     "information_granularity",
     "structural_cohesion",
@@ -80,6 +83,73 @@ def _target_aspect(case: Mapping[str, Any]) -> tuple[float, float]:
 
 def _normalized_source(value: str) -> str:
     return value.replace("\r\n", "\n").strip()
+
+
+def _scene_typography(scene: Any) -> dict[str, Any]:
+    sizes: list[float] = []
+    families = Counter()
+    likely_overflow: list[str] = []
+    svg_units = scene.metadata.get("coordinate_units") == "svg_px"
+    box_to_points = 72.0 / 96.0 if svg_units else 72.0
+
+    for item in scene.elements:
+        text = ""
+        box = None
+        safe_width_ratio = 0.82
+        if isinstance(item, SceneShape):
+            text = item.text
+            box = item.box
+            safe_width_ratio = {
+                "diamond": 0.45,
+                "hexagon": 0.52,
+                "stadium": 0.65,
+                "cylinder": 0.68,
+            }.get(item.shape, 0.72)
+        elif isinstance(item, SceneText):
+            text = item.text
+            box = item.box
+            safe_width_ratio = 0.92
+        elif isinstance(item, SceneContainer):
+            text = item.label
+            box = item.box
+        elif isinstance(item, SceneConnector):
+            text = item.label or ""
+        if not text:
+            continue
+
+        family = item.style.font_family
+        if family:
+            families[family] += 1
+        raw_size = item.style.font_size
+        if isinstance(raw_size, FontSize):
+            size = raw_size.resolve()
+        elif raw_size is not None:
+            size = float(raw_size) * (72.0 / 96.0 if svg_units else 1.0)
+        else:
+            size = 12.0
+        sizes.append(size)
+
+        if box is None:
+            continue
+        available_width = max(1.0, box.width * box_to_points * safe_width_ratio)
+        available_height = max(1.0, box.height * box_to_points * 0.82)
+        wrapped_lines = 0
+        for line in re.split(r"(?:\r?\n|<br\s*/?>)", text, flags=re.IGNORECASE):
+            em_width = sum(
+                1.0 if east_asian_width(character) in {"W", "F", "A"} else 0.55
+                for character in line
+            )
+            wrapped_lines += max(1, ceil(em_width * size / available_width))
+        if wrapped_lines * size * 1.2 > available_height:
+            likely_overflow.append(item.semantic_id)
+
+    unique_sizes = sorted({round(size, 2) for size in sizes})
+    return {
+        "font_families": dict(families.most_common()),
+        "font_sizes_pt": unique_sizes,
+        "distinct_font_size_count": len(unique_sizes),
+        "likely_overflow_ids": sorted(set(likely_overflow)),
+    }
 
 
 def _place_on_slide(svg: str, *, title: str, slide_region: str) -> str:
@@ -207,6 +277,9 @@ def _prepare_candidate(
                 warnings.append(f"diagram_{index}:aspect_ratio_outside_target")
             if primary_nodes > int(case["max_primary_nodes_per_diagram"]):
                 warnings.append(f"diagram_{index}:primary_node_budget_exceeded")
+            typography = _scene_typography(scene)
+            if typography["likely_overflow_ids"]:
+                warnings.append(f"diagram_{index}:likely_text_overflow")
 
             stem = f"{index:02d}"
             diagram_svg = to_svg(
@@ -254,6 +327,7 @@ def _prepare_candidate(
                         ),
                         "texts": sum(isinstance(item, SceneText) for item in scene.elements),
                     },
+                    "typography": typography,
                     "diagnostics": [item.to_dict() for item in result.diagnostics],
                     "svg_path": str(svg_path.resolve()),
                     "diagram_svg_path": str(diagram_svg_path.resolve()),

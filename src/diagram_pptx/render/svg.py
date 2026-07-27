@@ -593,6 +593,8 @@ def _text_columns(value: str) -> int:
 def _svg_font_family(value: str | None) -> str:
     if value is None or value.strip().lower() in {"aptos", "arial", "helvetica"}:
         return "sans-serif"
+    if value.strip().lower() in {"yu gothic", "yugothic", "游ゴシック"}:
+        return "'Yu Gothic', YuGothic, sans-serif"
     return value
 
 

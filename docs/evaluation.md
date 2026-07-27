@@ -8,8 +8,8 @@ Evaluate it separately from package correctness.
 1. **Deterministic gates** check parsing, rendering, diagram count, semantic
    element count, scene aspect ratio, diagnostics, and source preservation.
 2. **Multimodal LLM judges** score the rendered 16:9 result against an anchored
-   rubric for meaning, readability, balance, granularity, cohesion, and split
-   quality.
+  rubric for meaning, readability, typography, balance, granularity,
+  cohesion, and split quality.
 3. **Blind pairwise comparison** compares the current Skill with a candidate
    Skill. Repeat every comparison with `A` and `B` reversed.
 4. **Human audit** reviews all regressions and judge disagreements plus at
@@ -21,7 +21,7 @@ holdout set and periodically measure judge agreement against it.
 ## Repository assets
 
 - `evals/cases/slide-authoring-v1.jsonl`: mixed English/Japanese briefs,
-  controls, density failures, and natural split cases.
+  controls, density failures, typography/overflow cases, and natural splits.
 - `evals/prompts/judge-v1.md`: provider-neutral multimodal judge instructions.
 - `evals/schemas/case-v1.schema.json`: evaluation-case contract.
 - `evals/schemas/candidate-v1.schema.json`: generator output contract.

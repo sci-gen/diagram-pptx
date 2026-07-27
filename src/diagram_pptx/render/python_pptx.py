@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from itertools import pairwise
-from math import hypot
+from math import ceil, hypot
 from typing import Any
 from unicodedata import east_asian_width
 
@@ -418,10 +418,11 @@ class PythonPptxRenderer:
                 scale=transform.stroke_scale,
             )
         else:
+            label_width = max(Inches(0.1), width - Inches(0.16))
             label = slide.shapes.add_textbox(
                 left + Inches(0.08),
                 top + Inches(0.02),
-                max(Inches(0.1), width - Inches(0.16)),
+                label_width,
                 label_height,
             )
         label.name = f"{self._shape_name(item)}:label"
@@ -436,6 +437,8 @@ class PythonPptxRenderer:
             slide_height_points=transform.slide_height_points,
             min_size=9.0,
             max_size=18.0,
+            box_width=label_width,
+            box_height=label_height,
         )
         return [outline, label]
 
@@ -470,6 +473,15 @@ class PythonPptxRenderer:
                 slide_height_points=transform.slide_height_points,
                 min_size=12.0,
                 max_size=40.0,
+                box_width=width,
+                box_height=height,
+                safe_width_ratio={
+                    "diamond": 0.52,
+                    "hexagon": 0.62,
+                    "stadium": 0.78,
+                    "cylinder": 0.78,
+                }.get(item.shape, 1.0),
+                safe_height_ratio=0.72 if item.shape == "diamond" else 1.0,
             )
         return shape
 
@@ -506,6 +518,8 @@ class PythonPptxRenderer:
                 slide_height_points=transform.slide_height_points,
                 min_size=12.0,
                 max_size=40.0,
+                box_width=shape.width,
+                box_height=shape.height,
             )
         return shape
 
@@ -601,6 +615,8 @@ class PythonPptxRenderer:
                     ),
                 ),
                 max_size=18.0,
+                box_width=label_width,
+                box_height=label_height,
             )
         return connectors, label_shape
 
@@ -662,6 +678,8 @@ class PythonPptxRenderer:
                 else 9.0
             ),
             max_size=40.0,
+            box_width=width,
+            box_height=height,
         )
         shape.text_frame.margin_left = 0
         shape.text_frame.margin_right = 0
@@ -749,6 +767,10 @@ class PythonPptxRenderer:
         slide_height_points: float = 540.0,
         min_size: float = 9.0,
         max_size: float = 28.0,
+        box_width: int | None = None,
+        box_height: int | None = None,
+        safe_width_ratio: float = 1.0,
+        safe_height_ratio: float = 1.0,
     ) -> None:
         text_frame.clear()
         text_frame.margin_left = Inches(self.inner_padding)
@@ -761,7 +783,7 @@ class PythonPptxRenderer:
             paragraph.alignment = align
             run = paragraph.add_run()
             run.text = line
-            run.font.name = style.font_family or "Aptos"
+            self._set_run_font_family(run, style.font_family or "Aptos")
             fitted_size, is_absolute = self._font_points(
                 style,
                 default_size=default_size,
@@ -781,6 +803,38 @@ class PythonPptxRenderer:
                     max(min_size, global_min),
                     min(min(max_size, global_max), fitted_size),
                 )
+            if self.typography.fit == "fit" and box_width is not None and box_height is not None:
+                fit_floor = min(
+                    resolved_size,
+                    max(
+                        min_size,
+                        self.typography.min_font_size.resolve(
+                            slide_height_points=slide_height_points
+                        ),
+                    ),
+                )
+                resolved_size = min(
+                    resolved_size,
+                    max(
+                        fit_floor,
+                        self._fit_font_size(
+                            text,
+                            requested_size=resolved_size,
+                            width_points=box_width / 12700.0,
+                            height_points=box_height / 12700.0,
+                            horizontal_margin_points=(
+                                text_frame.margin_left + text_frame.margin_right
+                            )
+                            / 12700.0,
+                            vertical_margin_points=(
+                                text_frame.margin_top + text_frame.margin_bottom
+                            )
+                            / 12700.0,
+                            safe_width_ratio=safe_width_ratio,
+                            safe_height_ratio=safe_height_ratio,
+                        ),
+                    ),
+                )
             run.font.size = Pt(resolved_size)
             run.font.bold = bool(style.bold)
             run.font.italic = bool(style.italic)
@@ -789,12 +843,73 @@ class PythonPptxRenderer:
                 style.text or default_color,
                 opacity=style.opacity,
             )
-        if isinstance(style.font_size, FontSize) and style.font_size.is_absolute:
-            text_frame.auto_size = (
-                MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-                if self.typography.fit == "fit"
-                else MSO_AUTO_SIZE.NONE
-            )
+        text_frame.auto_size = (
+            MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE if self.typography.fit == "fit" else MSO_AUTO_SIZE.NONE
+        )
+
+    @staticmethod
+    def _set_run_font_family(run: Any, family: str) -> None:
+        run.font.name = family
+        properties = run._r.get_or_add_rPr()
+        east_asian = properties.find(qn("a:ea"))
+        if east_asian is None:
+            east_asian = OxmlElement("a:ea")
+            properties.append(east_asian)
+        east_asian.set("typeface", family)
+
+    @classmethod
+    def _fit_font_size(
+        cls,
+        text: str,
+        *,
+        requested_size: float,
+        width_points: float,
+        height_points: float,
+        horizontal_margin_points: float,
+        vertical_margin_points: float,
+        safe_width_ratio: float,
+        safe_height_ratio: float,
+    ) -> float:
+        available_width = max(
+            0.1,
+            width_points * safe_width_ratio - horizontal_margin_points,
+        )
+        available_height = max(
+            0.1,
+            height_points * safe_height_ratio - vertical_margin_points,
+        )
+        lines = re.split(r"(?:\r?\n|<br\s*/?>)", text, flags=re.IGNORECASE) or [""]
+
+        def fits(size: float) -> bool:
+            capacity = max(0.1, available_width / size)
+            wrapped_lines = sum(max(1, ceil(cls._text_em_width(line) / capacity)) for line in lines)
+            return wrapped_lines * size * 1.2 <= available_height
+
+        if fits(requested_size):
+            return requested_size
+        lower = 0.5
+        upper = requested_size
+        for _ in range(24):
+            middle = (lower + upper) / 2
+            if fits(middle):
+                lower = middle
+            else:
+                upper = middle
+        return lower
+
+    @staticmethod
+    def _text_em_width(value: str) -> float:
+        width = 0.0
+        for character in value:
+            if east_asian_width(character) in {"W", "F", "A"}:
+                width += 1.0
+            elif character.isspace():
+                width += 0.32
+            elif character.isupper():
+                width += 0.62
+            else:
+                width += 0.55
+        return max(width, 0.5)
 
     @staticmethod
     def _font_points(

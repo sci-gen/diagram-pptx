@@ -23,6 +23,8 @@ def test_slide_authoring_cases_cover_controls_and_split_failures() -> None:
     }
     assert any(case["mode"] == "preserve" for case in cases)
     assert any(case["language"] == "ja" for case in cases)
+    assert any("overflow" in case["tags"] for case in cases)
+    assert any("hierarchy" in case["tags"] for case in cases)
 
 
 def test_prepare_builds_renderer_neutral_judge_item(tmp_path: Path) -> None:
@@ -75,6 +77,7 @@ def test_prepare_builds_renderer_neutral_judge_item(tmp_path: Path) -> None:
     item = _read_jsonl(output_dir / "judge-items.jsonl")[0]
     assert item["deterministic"]["hard_failures"] == []
     assert item["diagrams"][0]["primary_node_count"] == 5
+    assert item["diagrams"][0]["typography"]["distinct_font_size_count"] >= 1
     slide_svg = Path(item["diagrams"][0]["svg_path"])
     assert slide_svg.is_file()
     assert 'viewBox="0 0 1600 900"' in slide_svg.read_text(encoding="utf-8")
@@ -108,6 +111,7 @@ def test_summarize_applies_regression_gate(tmp_path: Path) -> None:
                 "scores": {
                     "requirement_fidelity": score,
                     "slide_readability": score,
+                    "typography_quality": score,
                     "visual_balance": score,
                     "information_granularity": score,
                     "structural_cohesion": score,
@@ -168,6 +172,7 @@ def test_summarize_resolves_blind_pairwise_order(tmp_path: Path) -> None:
                 "scores": {
                     "requirement_fidelity": 5,
                     "slide_readability": 5,
+                    "typography_quality": 5,
                     "visual_balance": 5,
                     "information_granularity": 5,
                     "structural_cohesion": 5,

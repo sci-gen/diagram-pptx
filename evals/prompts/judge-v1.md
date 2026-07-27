@@ -21,6 +21,9 @@ Return an integer from 1 to 5 for every dimension.
 - `requirement_fidelity`: preserves the brief's meaning and required concepts.
 - `slide_readability`: readable at normal slide scale without tiny, clipped,
   overlapping, or unexpectedly wrapped text.
+- `typography_quality`: uses legible fonts, intentional hierarchy, and
+  consistent sizes for peer elements. Penalize accidental size variation,
+  text escaping its shape, and unsuitable Japanese font fallback.
 - `visual_balance`: uses the requested 16:9 region without becoming extremely
   wide, tall, sparse, or visually lopsided.
 - `information_granularity`: shows audience-meaningful steps and omits

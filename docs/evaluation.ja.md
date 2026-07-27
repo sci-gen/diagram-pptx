@@ -8,7 +8,7 @@
 1. **決定論的gate**：parse、render、diagram数、semantic element数、
    scene aspect ratio、diagnostic、元source保持を検査します。
 2. **Multimodal LLM judge**：16:9のrender結果を、要件忠実性、可読性、
-   visual balance、情報粒度、構造の凝集性、分割品質で採点します。
+   typography、visual balance、情報粒度、構造の凝集性、分割品質で採点します。
 3. **匿名pairwise比較**：現行Skillと改善候補をA/B比較します。A/Bの表示順を
    反転した判定も必ず実施します。
 4. **人間による監査**：regressionとjudge不一致を全件確認し、それ以外の
@@ -20,7 +20,7 @@ holdout setを保持し、Judgeとの一致度を定期的に確認します。
 ## 同梱物
 
 - `evals/cases/slide-authoring-v1.jsonl`：日英のbrief、control、
-  過密diagram、自然な分割case
+  過密diagram、font overflow、自然な分割case
 - `evals/prompts/judge-v1.md`：provider-neutralな画像付きJudge指示
 - `evals/schemas/case-v1.schema.json`：評価case contract
 - `evals/schemas/candidate-v1.schema.json`：生成結果contract

@@ -12,6 +12,8 @@ Versioning.
   authoring, including bilingual guidance, mixed Japanese/English cases,
   deterministic rendering metrics, JSON contracts, pairwise judgments, and a
   public feedback form.
+- Pre-render text fitting that preserves intentional per-element font-size
+  differences, plus Yu Gothic as the default Japanese PowerPoint typeface.
 
 ## [0.1.0b2] - 2026-07-27
 
