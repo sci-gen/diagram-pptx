@@ -93,6 +93,12 @@ def test_all_native_families_export_svg(source) -> None:
     assert "data-semantic-id=" in svg
 
 
+def test_japanese_svg_uses_yu_gothic_with_portable_fallbacks() -> None:
+    svg = parse_mermaid("flowchart LR\nA[申請] --> B[承認]\n").to_svg()
+
+    assert "font-family=\"'Yu Gothic', YuGothic, sans-serif\"" in svg
+
+
 def test_png_dpi_scales_natural_dimensions(tmp_path) -> None:
     document = parse_mermaid(SOURCE)
     svg_result = save_diagram(document, tmp_path / "base.svg")

@@ -211,6 +211,7 @@ from diagram_pptx import (
 compiler = DiagramCompiler(
     DiagramSettings(
         typography=TypographySettings(
+            japanese_font_family="Yu Gothic",
             node="18pt",
             edge="12pt",
             group="14pt",
@@ -224,10 +225,34 @@ compiler.render_mermaid(other_source, slide=slide, position="right")
 ```
 
 `fit="fit"` is the default. An explicit unit-aware size is the preferred
-PowerPoint size and may shrink to fit its shape. `fit="none"` keeps the
-specified size even if it overflows. Automatic text retains a 9 pt general
-floor and a 12 pt connector/message floor; both are configurable through
-`min_font_size` and `edge_min_font_size`.
+PowerPoint size and is pre-fitted against the physical shape before the file
+is opened. PowerPoint autofit remains enabled as a final safety net.
+`fit="none"` keeps the specified size even if it overflows. Automatic text
+retains a 9 pt general floor and a 12 pt connector/message floor; both are
+configurable through `min_font_size` and `edge_min_font_size`. If text still
+does not fit at the floor, shorten or wrap the label, enlarge the bounds, or
+split the diagram.
+
+Japanese text defaults to `Yu Gothic` and writes the PowerPoint East Asian
+typeface explicitly. Override it per compiler with
+`japanese_font_family="BIZ UDPGothic"`, or set `font_family` to use one family
+for every language.
+
+Different elements can use different intentional sizes:
+
+```python
+result = compiler.render_mermaid(
+    source,
+    slide=slide,
+    style_overrides={
+        "primary_decision": {"font_size": "24pt"},
+        "supporting_note": {"font_size": "12pt"},
+    },
+)
+```
+
+The fit pass preserves those requested differences unless a particular shape
+needs to shrink to avoid overflow.
 
 Typography follows the normal style hierarchy:
 

@@ -6,7 +6,7 @@ import pytest
 from pptx import Presentation
 from test_mermaid_frontend import SAMPLES, SOURCE_ONLY_SAMPLES
 
-from diagram_pptx import compile_diagram, parse_mermaid
+from diagram_pptx import build_scene, compile_diagram, parse_mermaid
 from diagram_pptx.importers import import_mermaid_svg
 from diagram_pptx.official import mmdc_version
 from diagram_pptx.render import PythonPptxRenderer
@@ -575,6 +575,26 @@ def test_class_svg_recovers_solid_frames_source_arrow_and_label_background() -> 
     assert len(relation_parts) == 1
     assert 'type="triangle"' in relation_parts[0]._element.xml
     assert not any(shape.name.endswith(":marker-start") for shape in relation_parts)
+
+
+@pytest.mark.official
+def test_official_japanese_text_uses_yu_gothic_default() -> None:
+    executable = shutil.which("mmdc")
+    if executable is None:
+        pytest.skip("mmdc is not installed")
+
+    result = build_scene(
+        parse_mermaid("flowchart LR\nA[申請] --> B[承認]\n"),
+        backend="official",
+        strict=True,
+        timeout=60,
+    )
+    japanese_elements = [
+        item for item in result.scene.elements if getattr(item, "text", "") in {"申請", "承認"}
+    ]
+
+    assert japanese_elements
+    assert {item.style.font_family for item in japanese_elements} == {"Yu Gothic"}
 
 
 @pytest.mark.official

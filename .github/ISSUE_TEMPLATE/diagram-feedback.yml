@@ -1,0 +1,65 @@
+name: Diagram rendering feedback
+description: Share a sanitized diagram that is hard to read, poorly laid out, or unexpectedly rendered.
+title: "[Diagram feedback] "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve diagram-pptx. GitHub issues are public.
+        Do not post confidential Mermaid, customer names, credentials, or private screenshots.
+  - type: input
+    id: version
+    attributes:
+      label: diagram-pptx version
+      placeholder: 0.1.0b2
+    validations:
+      required: true
+  - type: dropdown
+    id: diagram_kind
+    attributes:
+      label: Diagram kind
+      options:
+        - Flowchart
+        - Sequence
+        - Class
+        - ER
+        - State
+        - Other Mermaid family
+    validations:
+      required: true
+  - type: input
+    id: configuration
+    attributes:
+      label: Backend, style, and output
+      description: For example, native / official style / PPTX.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Sanitized Mermaid source
+      description: Replace private names and values. Leave blank if the source cannot be shared.
+      render: mermaid
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Describe readability, aspect ratio, overlap, label, connector, or splitting problems.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What would be clearer?
+      description: Explain the expected structure or attach a sanitized screenshot by dragging it here.
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Public-data confirmation
+      options:
+        - label: I removed confidential and personally identifying information from everything shared here.
+          required: true

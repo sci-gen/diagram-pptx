@@ -136,6 +136,8 @@ class TypographySettings:
     """
 
     fit: FontFit = "fit"
+    font_family: str | None = None
+    japanese_font_family: str = "Yu Gothic"
     font_size: FontSize | float | int | str | Mapping[str, Any] | None = None
     node: FontSize | float | int | str | Mapping[str, Any] | None = None
     edge: FontSize | float | int | str | Mapping[str, Any] | None = None
@@ -154,6 +156,10 @@ class TypographySettings:
     def __post_init__(self) -> None:
         if self.fit not in {"fit", "none"}:
             raise ValueError("typography fit must be 'fit' or 'none'")
+        if self.font_family is not None and not self.font_family.strip():
+            raise ValueError("font_family must not be empty")
+        if not self.japanese_font_family.strip():
+            raise ValueError("japanese_font_family must not be empty")
         for name in (
             "font_size",
             "node",
@@ -167,7 +173,12 @@ class TypographySettings:
             setattr(self, name, coerce_font_size(getattr(self, name)))
 
     def to_dict(self) -> dict[str, Any]:
-        result: dict[str, Any] = {"fit": self.fit}
+        result: dict[str, Any] = {
+            "fit": self.fit,
+            "japanese_font_family": self.japanese_font_family,
+        }
+        if self.font_family is not None:
+            result["font_family"] = self.font_family
         for name in (
             "font_size",
             "node",

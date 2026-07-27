@@ -317,8 +317,9 @@ def build_scene(
         colormap_style,
         label_background=label_background,
     )
+    _apply_language_font_defaults(scene, resolved_settings.typography)
     if resolved_settings.typography.fit == "fit":
-        _improve_shape_label_typography(scene)
+        _improve_shape_label_typography(scene, resolved_settings.typography)
     return SceneResult(
         backend_used=backend_used.value,
         diagnostics=diagnostics,
@@ -543,8 +544,9 @@ def render_mermaid(
                 colormap_style,
                 label_background=label_background,
             )
+            _apply_language_font_defaults(scene, resolved_settings.typography)
             if resolved_settings.typography.fit == "fit":
-                _improve_shape_label_typography(scene)
+                _improve_shape_label_typography(scene, resolved_settings.typography)
             native_result = (
                 renderer or PythonPptxRenderer(typography=resolved_settings.typography)
             ).render(
@@ -672,23 +674,60 @@ def _typography_theme(settings: TypographySettings) -> DiagramTheme:
     if settings.text is not None:
         roles["text.default"] = ElementStyle(font_size=settings.text)
     return DiagramTheme(
-        defaults=ElementStyle(font_size=settings.font_size),
+        defaults=ElementStyle(
+            font_family=settings.font_family,
+            font_size=settings.font_size,
+        ),
         roles=roles,
     )
 
 
-def _source_scaled_font_size(value: FontSize | float | int | None) -> float | None:
-    if value is None:
-        return None
-    if isinstance(value, FontSize):
-        return None if value.is_absolute else value.value
-    return float(value)
+def _apply_language_font_defaults(
+    scene: DrawingScene,
+    settings: TypographySettings,
+) -> None:
+    if settings.font_family is not None:
+        return
+    mermaid_default_stack = "trebuchetms,verdana,arial,sans-serif"
+    for item in scene.elements:
+        text = ""
+        if isinstance(item, SceneShape):
+            text = item.text
+        elif isinstance(item, SceneText):
+            text = item.text
+        elif isinstance(item, SceneContainer):
+            text = item.label
+        elif isinstance(item, SceneConnector):
+            text = item.label or ""
+        if not _contains_japanese_text(text):
+            continue
+        current = (item.style.font_family or "").strip().lower()
+        normalized = "".join(current.replace('"', "").replace("'", "").split())
+        if not current or normalized == mermaid_default_stack:
+            item.style.font_family = settings.japanese_font_family
 
 
-def _improve_shape_label_typography(scene: DrawingScene) -> None:
-    """Enlarge labels that visually belong to a shape while preserving fit."""
+def _contains_japanese_text(value: str) -> bool:
+    return any(
+        "\u3040" <= character <= "\u30ff"
+        or "\u3400" <= character <= "\u9fff"
+        or "\uff66" <= character <= "\uff9f"
+        for character in value
+    )
+
+
+def _improve_shape_label_typography(
+    scene: DrawingScene,
+    settings: TypographySettings,
+) -> None:
+    """Fit labels that visually belong to a shape while preserving hierarchy."""
 
     font_units = 1.0 if scene.metadata.get("coordinate_units") == "svg_px" else 72.0
+    source_units_per_point = (
+        96.0 / 72.0 if scene.metadata.get("coordinate_units") == "svg_px" else 1.0
+    )
+    min_source_size = settings.min_font_size.resolve() * source_units_per_point
+    max_source_size = settings.max_font_size.resolve() * source_units_per_point
     node_text_classes = {
         "actor-box",
         "block",
@@ -720,18 +759,27 @@ def _improve_shape_label_typography(scene: DrawingScene) -> None:
     for shape in shapes:
         if not shape.text:
             continue
-        current = _source_scaled_font_size(shape.style.font_size)
-        if current is None and shape.style.font_size is not None:
-            continue
+        current, is_absolute = _font_size_in_source_units(
+            shape.style.font_size,
+            source_units_per_point=source_units_per_point,
+        )
         target = _shape_label_font_size(
             shape.text,
             shape.box,
             font_units=font_units,
             shape=shape.shape,
         )
-        current = current or 15.0
-        if target > current:
-            shape.style.set_source_font_size(target)
+        current = current or 15.0 * source_units_per_point
+        fitted = min(max_source_size, target)
+        desired = min(current, fitted) if is_absolute else fitted
+        desired = max(min_source_size, desired)
+        if abs(desired - current) > 1e-9:
+            _set_fitted_font_size(
+                shape.style,
+                desired,
+                is_absolute=is_absolute,
+                source_units_per_point=source_units_per_point,
+            )
 
     assignments: dict[int, tuple[SceneShape, list[SceneText]]] = {}
     for text_item in (
@@ -761,7 +809,14 @@ def _improve_shape_label_typography(scene: DrawingScene) -> None:
         entry[1].append(text_item)
 
     for shape, text_items in assignments.values():
-        _resize_contained_shape_labels(shape, text_items, font_units=font_units)
+        _resize_contained_shape_labels(
+            shape,
+            text_items,
+            font_units=font_units,
+            source_units_per_point=source_units_per_point,
+            min_source_size=min_source_size,
+            max_source_size=max_source_size,
+        )
     scene.recompute_extents()
 
 
@@ -770,6 +825,9 @@ def _resize_contained_shape_labels(
     text_items: list[SceneText],
     *,
     font_units: float,
+    source_units_per_point: float,
+    min_source_size: float,
+    max_source_size: float,
 ) -> None:
     unique_centers = sorted({round(item.box.center.y, 6) for item in text_items})
     if len(unique_centers) != len(text_items):
@@ -795,15 +853,50 @@ def _resize_contained_shape_labels(
             shape.box.width * font_units,
             shape=shape.shape,
         )
-        target = min(40.0, height_limit, width_limit)
-        current = _source_scaled_font_size(item.style.font_size)
-        if current is None and item.style.font_size is not None:
+        target = min(max_source_size, height_limit, width_limit)
+        current, is_absolute = _font_size_in_source_units(
+            item.style.font_size,
+            source_units_per_point=source_units_per_point,
+        )
+        current = current or 12.0 * source_units_per_point
+        desired = min(current, target) if is_absolute else target
+        desired = max(min_source_size, desired)
+        if abs(desired - current) <= 1e-9:
             continue
-        current = current or 12.0
-        if target <= current:
-            continue
-        _resize_text_box(item, target / current)
-        item.style.set_source_font_size(target)
+        _resize_text_box(item, desired / current)
+        _set_fitted_font_size(
+            item.style,
+            desired,
+            is_absolute=is_absolute,
+            source_units_per_point=source_units_per_point,
+        )
+
+
+def _font_size_in_source_units(
+    value: FontSize | float | int | None,
+    *,
+    source_units_per_point: float,
+) -> tuple[float | None, bool]:
+    if value is None:
+        return None, False
+    if isinstance(value, FontSize):
+        if value.is_absolute:
+            return value.resolve() * source_units_per_point, True
+        return value.value, False
+    return float(value), False
+
+
+def _set_fitted_font_size(
+    style: ElementStyle,
+    value: float,
+    *,
+    is_absolute: bool,
+    source_units_per_point: float,
+) -> None:
+    if is_absolute:
+        style.font_size = FontSize.pt(value / source_units_per_point)
+    else:
+        style.set_source_font_size(value)
 
 
 def _shape_label_font_size(

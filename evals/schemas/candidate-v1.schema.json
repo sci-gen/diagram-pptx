@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sci-gen/diagram-pptx/evals/schemas/candidate-v1.schema.json",
+  "title": "diagram-pptx slide-authoring candidate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "run_id", "candidate_id", "diagrams"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "case_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "candidate_id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string"},
+        "model": {"type": "string"},
+        "skill_version": {"type": "string"},
+        "prompt_version": {"type": "string"}
+      }
+    },
+    "diagrams": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "source"],
+        "properties": {
+          "title": {"type": "string", "minLength": 1},
+          "source": {"type": "string", "minLength": 1},
+          "overview_branch": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "notes": {"type": "string"}
+  }
+}
