@@ -6,12 +6,16 @@ Versioning.
 
 ## [Unreleased]
 
+## [0.1.0b3] - 2026-07-28
+
 ### Added
 
 - A provider-neutral LLM-as-a-judge evaluation kit for 16:9 Mermaid
   authoring, including bilingual guidance, mixed Japanese/English cases,
   deterministic rendering metrics, JSON contracts, pairwise judgments, and a
   public feedback form.
+- A reviewed 14-case reference candidate set and initial promotion summary for
+  repeatable renderer and authoring-policy comparisons.
 - Pre-render text fitting that preserves intentional per-element font-size
   differences, plus Yu Gothic as the default Japanese PowerPoint typeface.
 
@@ -147,7 +151,8 @@ Versioning.
 - Corrected Native Sequence return-message dashes and label placement, Class
   association arrowheads, and State start/end pseudo-state rendering.
 
-[Unreleased]: https://github.com/sci-gen/diagram-pptx/compare/v0.1.0b2...HEAD
+[Unreleased]: https://github.com/sci-gen/diagram-pptx/compare/v0.1.0b3...HEAD
+[0.1.0b3]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0b3
 [0.1.0b2]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0b2
 [0.1.0b1]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0b1
 [0.1.0a1]: https://github.com/sci-gen/diagram-pptx/releases/tag/v0.1.0a1

@@ -34,7 +34,7 @@ import importlib.resources as resources
 import diagram_pptx
 
 distribution = metadata.distribution("diagram-pptx")
-assert distribution.version == "0.1.0b2"
+assert distribution.version == "0.1.0b3"
 assert distribution.metadata["License-Expression"] == "MIT"
 assert any(
     str(path).endswith(".dist-info/licenses/LICENSE")
