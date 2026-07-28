@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "evaluated_at": "2026-07-28",
+  "case_set": "slide-authoring-v1",
+  "reference_candidates": "reference-v1",
+  "baseline_run": "package-b2",
+  "candidate_run": "package-main",
+  "environment": "diagram-pptx-dev",
+  "runs": {
+    "package-b2": {
+      "package_version": "0.1.0b2",
+      "case_count": 14,
+      "pass_rate": 1.0,
+      "overall_mean": 4.551020408163265,
+      "hard_failure_count": 0
+    },
+    "package-main": {
+      "package_version": "0.1.0b3",
+      "case_count": 14,
+      "pass_rate": 1.0,
+      "overall_mean": 4.551020408163265,
+      "hard_failure_count": 0
+    }
+  },
+  "pairwise": {
+    "comparison_count": 28,
+    "candidate_wins": 0,
+    "baseline_wins": 0,
+    "ties": 28
+  },
+  "promotion": {
+    "pass_rate": true,
+    "overall_mean": true,
+    "no_hard_failures": true,
+    "no_dimension_regression": true,
+    "pairwise_not_worse": true,
+    "promote": true
+  }
+}

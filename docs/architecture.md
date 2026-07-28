@@ -194,4 +194,4 @@ installed Mermaid CLI and its Node.js/Chromium runtime.
 - LibreOffice/OOXML as the automated rendering baseline
 
 Microsoft PowerPoint display identity and pixel-perfect browser equivalence
-are not guaranteed by `0.1.0b2`.
+are not guaranteed by `0.1.0b3`.

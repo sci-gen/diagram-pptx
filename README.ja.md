@@ -90,7 +90,7 @@ diagram.save("diagram.png", dpi=300)
 - [開発への参加](https://github.com/sci-gen/diagram-pptx/blob/main/CONTRIBUTING.md)
 - [変更履歴](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
-`0.1.0b2`はbeta版です。未対応のMermaid構文を黙って破棄せず、
+`0.1.0b3`はbeta版です。未対応のMermaid構文を黙って破棄せず、
 診断として通知します。対応範囲とbackendの挙動は利用ガイドを参照してください。
 
 ## ライセンス

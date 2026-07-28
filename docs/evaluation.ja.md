@@ -21,6 +21,8 @@ holdout setを保持し、Judgeとの一致度を定期的に確認します。
 
 - `evals/cases/slide-authoring-v1.jsonl`：日英のbrief、control、
   過密diagram、font overflow、自然な分割case
+- `evals/candidates/reference-v1.jsonl`：全同梱caseのreview済みreference回答
+- `evals/results/reference-v1-summary.json`：初回package比較とpromotion gate結果
 - `evals/prompts/judge-v1.md`：provider-neutralな画像付きJudge指示
 - `evals/schemas/case-v1.schema.json`：評価case contract
 - `evals/schemas/candidate-v1.schema.json`：生成結果contract
@@ -61,6 +63,12 @@ python scripts/authoring_eval.py summarize \
   --require-pairwise \
   --output artifacts/evals/summary.json
 ```
+
+2026-07-28の初回reference runでは、固定Docker環境で14 caseをすべて
+renderしました。PyPI `0.1.0b2`と`0.1.0b3`候補はいずれも14/14 caseがpass、
+平均4.55/5、hard failure 0件でした。表示順を反転した28回のpairwise判定は
+すべて実用上tieとなり、候補はno-regression promotion gateを通過しました。
+これは再現可能な開始点であり、独立したuser feedbackの代替ではありません。
 
 ## Promotion gate
 

@@ -22,6 +22,10 @@ holdout set and periodically measure judge agreement against it.
 
 - `evals/cases/slide-authoring-v1.jsonl`: mixed English/Japanese briefs,
   controls, density failures, typography/overflow cases, and natural splits.
+- `evals/candidates/reference-v1.jsonl`: reviewed reference answers for every
+  bundled case.
+- `evals/results/reference-v1-summary.json`: the first package comparison and
+  promotion-gate result.
 - `evals/prompts/judge-v1.md`: provider-neutral multimodal judge instructions.
 - `evals/schemas/case-v1.schema.json`: evaluation-case contract.
 - `evals/schemas/candidate-v1.schema.json`: generator output contract.
@@ -63,6 +67,13 @@ python scripts/authoring_eval.py summarize \
   --require-pairwise \
   --output artifacts/evals/summary.json
 ```
+
+The initial reference run on 2026-07-28 rendered all 14 cases in the same
+pinned Docker environment. Both PyPI `0.1.0b2` and the `0.1.0b3` candidate
+passed 14/14 cases with a mean score of 4.55/5 and no hard failures. All 28
+order-reversed pairwise judgments were practical ties, so the candidate
+cleared the no-regression promotion gate. Treat this as a reproducible
+starting point, not a substitute for independent user feedback.
 
 ## Promotion gate
 

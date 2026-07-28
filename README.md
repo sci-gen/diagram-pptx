@@ -90,7 +90,7 @@ diagram.save("diagram.png", dpi=300)
 - [Contributing](https://github.com/sci-gen/diagram-pptx/blob/main/CONTRIBUTING.md)
 - [Changelog](https://github.com/sci-gen/diagram-pptx/blob/main/CHANGELOG.md)
 
-`0.1.0b2` is a beta release. Unsupported Mermaid syntax is reported rather
+`0.1.0b3` is a beta release. Unsupported Mermaid syntax is reported rather
 than silently discarded. See the user guide for the support matrix and
 backend behavior.
 
